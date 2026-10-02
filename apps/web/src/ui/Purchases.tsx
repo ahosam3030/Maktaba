@@ -30,11 +30,18 @@ export function Purchases() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  const PURCHASE_UNITS = [
+    { label: 'قطعة', api: 'PIECE' as const, defaultPcs: 1 },
+    { label: 'علبة', api: 'PACK' as const, defaultPcs: 1 },
+    { label: 'دستة', api: 'PACK' as const, defaultPcs: 12 },
+    { label: 'كرتونة', api: 'PACK' as const, defaultPcs: 1 },
+    { label: 'رزمة', api: 'PACK' as const, defaultPcs: 1 },
+  ];
   type DraftLine = {
     key: string;
     barcode: string;
     productName: string;
-    unit: 'PIECE' | 'PACK';
+    unitLabel: string;
     quantity: string;
     piecesPerPack: string;
     unitCost: string;
@@ -44,7 +51,7 @@ export function Purchases() {
     key: newDraftKey(),
     barcode: '',
     productName: '',
-    unit: 'PIECE',
+    unitLabel: 'قطعة',
     quantity: '1',
     piecesPerPack: '1',
     unitCost: '',
@@ -135,14 +142,46 @@ export function Purchases() {
     return String(max + 1);
   }
 
+  function unitApi(label: string): 'PIECE' | 'PACK' {
+    return PURCHASE_UNITS.find((u) => u.label === label)?.api || 'PIECE';
+  }
+
   function piecePrice(l: DraftLine): number | null {
     const cost = Number(l.unitCost);
     if (!Number.isFinite(cost) || l.unitCost === '') return null;
-    if (l.unit === 'PACK') {
+    if (unitApi(l.unitLabel) === 'PACK') {
       const ppp = Math.max(1, Math.floor(Number(l.piecesPerPack) || 1));
       return cost / ppp;
     }
     return cost;
+  }
+
+  /** آخر سعر لنفس الصنف/الوحدة من فواتير سابقة (مثل النسخة القديمة) */
+  function lastPurchaseHint(name: string, unitLabel: string): string {
+    const n = name.trim().toLowerCase();
+    if (!n) return '';
+    const unit = unitApi(unitLabel);
+    const matches = allPricePoints.filter(
+      (p) => p.productName.toLowerCase() === n && (unit === 'PACK' ? p.unit === 'علبة' : p.unit === 'قطعة'),
+    );
+    // fallback: any unit same name
+    const list = matches.length ? matches : allPricePoints.filter((p) => p.productName.toLowerCase() === n);
+    if (!list.length) return '';
+    const last = list[list.length - 1];
+    return `«${last.productName}»: آخر سعر ${last.unitCost} ج من ${last.supplier} بتاريخ ${last.date}`;
+  }
+
+  function fillFromBarcode(key: string, barcode: string) {
+    const bc = barcode.trim();
+    if (!bc) return;
+    // ابحث في فواتير سابقة عن نفس الباركود — عبر اسم الصنف في البنود (لو اتسجّل)
+    for (const inv of invoices) {
+      for (const it of inv.items || []) {
+        // لا يوجد barcode في InvoiceItem type حالياً — نطابق بالاسم لو الباركود كُتب في الاسم لاحقاً
+        void it;
+      }
+    }
+    // من allPricePoints لا نملك barcode؛ نترك المطابقة عند الحفظ في الـ API
   }
 
   function printDraftInvoice() {
@@ -161,10 +200,10 @@ export function Purchases() {
         id: String(i),
         productId: '',
         productName: l.productName.trim(),
-        unit: l.unit,
+        unit: unitApi(l.unitLabel),
         quantity: Number(l.quantity) || 0,
         unitCost: Number(l.unitCost) || 0,
-        piecesPerPack: l.unit === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
+        piecesPerPack: unitApi(l.unitLabel) === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
         lineTotal: (Number(l.quantity) || 0) * (Number(l.unitCost) || 0),
         returnedQuantity: 0,
       })),
@@ -204,10 +243,10 @@ export function Purchases() {
           items: filledLines.map((l) => ({
             productName: l.productName.trim(),
             barcode: l.barcode.trim() || undefined,
-            unit: l.unit,
+            unit: unitApi(l.unitLabel),
             quantity: Number(l.quantity),
             unitCost: Number(l.unitCost),
-            piecesPerPack: l.unit === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
+            piecesPerPack: unitApi(l.unitLabel) === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
           })),
         }),
       });
@@ -237,6 +276,17 @@ export function Purchases() {
       await refresh();
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'تعذر تسجيل الدفعة.');
+    }
+  }
+
+  async function deletePurchaseInvoice(invoice: Invoice) {
+    if (!confirm(`حذف فاتورة الوارد رقم ${invoice.invoiceNumber}؟\nسيتم خصم الكميات من المخزون.`)) return;
+    try {
+      await apiRequest(`/purchases/invoices/${invoice.id}`, { method: 'DELETE' });
+      setNotice(`تم حذف فاتورة الوارد ${invoice.invoiceNumber}.`);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حذف الفاتورة.');
     }
   }
 
@@ -479,11 +529,19 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                     </td>
                     <td>
                       <select
-                        value={l.unit}
-                        onChange={(e) => updateDraft(l.key, { unit: e.target.value as 'PIECE' | 'PACK' })}
+                        value={l.unitLabel}
+                        onChange={(e) => {
+                          const label = e.target.value;
+                          const meta = PURCHASE_UNITS.find((u) => u.label === label);
+                          updateDraft(l.key, {
+                            unitLabel: label,
+                            piecesPerPack: String(meta?.defaultPcs ?? 1),
+                          });
+                        }}
                       >
-                        <option value="PIECE">قطعة</option>
-                        <option value="PACK">علبة</option>
+                        {PURCHASE_UNITS.map((u) => (
+                          <option key={u.label} value={u.label}>{u.label}</option>
+                        ))}
                       </select>
                     </td>
                     <td>
@@ -501,7 +559,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                         min="1"
                         step="1"
                         value={l.piecesPerPack}
-                        disabled={l.unit !== 'PACK'}
+                        disabled={unitApi(l.unitLabel) !== 'PACK'}
                         onChange={(e) => updateDraft(l.key, { piecesPerPack: e.target.value })}
                       />
                     </td>
@@ -530,6 +588,15 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         <div style={{ marginTop: 12 }}>
           <button className="add-line-btn" type="button" onClick={addDraftRow}>+ إضافة صنف</button>
         </div>
+
+        {lines.some((l) => l.productName.trim()) && (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#5a7076' }}>
+            {lines.filter((l) => l.productName.trim()).map((l) => {
+              const h = lastPurchaseHint(l.productName, l.unitLabel);
+              return h ? <div key={l.key}>{h}</div> : null;
+            })}
+          </div>
+        )}
 
         <div className="sale-pay-row">
           <div className="sale-pay-fields">
@@ -759,7 +826,18 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
               <td>{i.items.length}</td>
               <td>{money(num(i.total))}</td>
               <td>{money(num(i.paidAmount))}</td>
-              <td><button className="secondary-btn small" type="button" onClick={() => printInvoice(i)}>طباعة</button></td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button className="secondary-btn small" type="button" onClick={() => printInvoice(i)}>طباعة</button>
+                  <button
+                    className="danger-outline-btn"
+                    type="button"
+                    onClick={() => void deletePurchaseInvoice(i)}
+                  >
+                    حذف
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}</tbody></table>
           {filtered.length === 0 && <div className="empty-state">لا توجد فواتير.</div>}

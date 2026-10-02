@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
@@ -146,6 +146,44 @@ export class PurchaseInvoicesController {
       }
       throw error;
     }
+  }
+
+  @Delete(':id')
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const invoice = await this.prisma.purchaseInvoice.findFirst({
+      where: { id, organizationId: user.organizationId },
+      include: { items: true, returns: { include: { items: true } } },
+    });
+    if (!invoice) throw new NotFoundException('فاتورة الوارد غير موجودة.');
+    if (invoice.returns.length > 0) {
+      throw new BadRequestException('لا يمكن حذف فاتورة عليها مرتجعات. احذف المرتجعات أولًا.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // خصم الكميات اللي دخلت المخزون من الفاتورة
+      for (const item of invoice.items) {
+        const pieces =
+          item.unit === 'PACK'
+            ? Number(item.quantity) * item.piecesPerPack
+            : Number(item.quantity);
+        if (pieces > 0) {
+          await tx.stockMovement.create({
+            data: {
+              organizationId: user.organizationId,
+              productId: item.productId,
+              quantity: new Prisma.Decimal(-pieces),
+              type: 'ADJUSTMENT',
+              reason: `حذف فاتورة وارد ${invoice.invoiceNumber}`,
+              notes: `إلغاء كميات فاتورة الوارد ${invoice.invoiceNumber}`,
+            },
+          });
+        }
+      }
+      await tx.supplierPayment.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.purchaseInvoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+      await tx.purchaseInvoice.delete({ where: { id: invoice.id } });
+      return { ok: true, invoiceNumber: invoice.invoiceNumber };
+    });
   }
 }
 
