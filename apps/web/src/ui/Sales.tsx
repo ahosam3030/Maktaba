@@ -138,7 +138,7 @@ export function Sales() {
     pointer-events: none;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-auto-rows: 95px;
+    grid-auto-rows: 88px;
     align-items: center;
     justify-items: center;
     opacity: 1;
