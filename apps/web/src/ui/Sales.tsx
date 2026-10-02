@@ -64,7 +64,7 @@ export function Sales() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const subtotal = useMemo(() => cart.reduce((sum, line) => {
-    if (!line.productId) return sum;
+    if (!line.productId && !line.query?.trim()) return sum;
     return sum + Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
   }, 0), [cart]);
   const discountValue = Math.max(0, Number(discount) || 0);
