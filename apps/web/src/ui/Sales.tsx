@@ -134,7 +134,7 @@ export function Sales() {
   .watermark {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 50;
     pointer-events: none;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -148,7 +148,7 @@ export function Sales() {
     transform: rotate(-30deg);
     font-size: 16px;
     font-weight: 900;
-    color: rgba(13, 58, 122, 0.18);
+    color: rgba(13, 58, 122, 0.22);
     text-align: center;
     line-height: 1.4;
     user-select: none;
@@ -159,7 +159,7 @@ export function Sales() {
     margin-top: 2px;
     font-size: 12px;
     font-weight: 800;
-    color: rgba(13, 58, 122, 0.20);
+    color: rgba(13, 58, 122, 0.24);
     letter-spacing: 0.4px;
   }
   .content { position: relative; z-index: 1; }
