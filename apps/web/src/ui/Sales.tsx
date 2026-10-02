@@ -62,28 +62,64 @@ export function Sales() {
   }
 
   function addEmptyRow() {
-    setCart((old) => [...old, { key: newLineKey(), productId: '', unit: 'قطعة', quantity: '1', unitPrice: '' }]);
+    setCart((old) => [...old, { key: newLineKey(), productId: '', query: '', unit: 'قطعة', quantity: '1', unitPrice: '' }]);
     setNotice('');
   }
 
-  function setLineProduct(key: string, productId: string) {
-    const p = products.find((x) => x.id === productId);
+  /** مطابقة بالباركود أولًا ثم بالاسم */
+  function findProduct(raw: string): Product | undefined {
+    const q = raw.trim().toLowerCase();
+    if (!q) return undefined;
+    const byBarcode = products.find((p) => (p.barcode || '').trim().toLowerCase() === q);
+    if (byBarcode) return byBarcode;
+    const exactName = products.find((p) => p.name.trim().toLowerCase() === q);
+    if (exactName) return exactName;
+    const starts = products.filter((p) => p.name.toLowerCase().startsWith(q));
+    if (starts.length === 1) return starts[0];
+    const contains = products.filter((p) => p.name.toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q));
+    if (contains.length === 1) return contains[0];
+    return undefined;
+  }
+
+  function applyProductToLine(line: CartLine, p: Product | undefined, query: string): CartLine {
+    if (!p) {
+      return { ...line, productId: '', query };
+    }
+    const stock = Number(p.stock) || 0;
+    if (stock <= 0) {
+      setNotice(`«${p.name}» رصيده صفر. سجّل وارد أو تسوية مخزون أولًا.`);
+      return { ...line, productId: '', query };
+    }
+    setNotice('');
+    return {
+      ...line,
+      productId: p.id,
+      query: p.name,
+      unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
+      quantity: line.quantity && Number(line.quantity) > 0 ? line.quantity : '1',
+      unit: line.unit || 'قطعة',
+    };
+  }
+
+  function onProductQueryChange(key: string, value: string) {
     setCart((old) => old.map((line) => {
       if (line.key !== key) return line;
-      if (!p) return { ...line, productId: '', unitPrice: '' };
-      const stock = Number(p.stock) || 0;
-      if (stock <= 0) {
-        setNotice(`«${p.name}» رصيده صفر. سجّل وارد أو تسوية مخزون أولًا.`);
-        return line;
+      // أثناء الكتابة نحدّث النص؛ المطابقة عند Enter أو blur
+      return { ...line, query: value, productId: '' };
+    }));
+  }
+
+  function resolveProductLine(key: string, value?: string) {
+    setCart((old) => old.map((line) => {
+      if (line.key !== key) return line;
+      const text = value !== undefined ? value : line.query;
+      const p = findProduct(text);
+      if (!text.trim()) return { ...line, productId: '', query: '' };
+      if (!p) {
+        setNotice(`لم يُعثر على «${text.trim()}» في المخزون. اكتب الاسم أو امسح الباركود.`);
+        return { ...line, productId: '', query: text };
       }
-      setNotice('');
-      return {
-        ...line,
-        productId: p.id,
-        unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
-        quantity: line.quantity && Number(line.quantity) > 0 ? line.quantity : '1',
-        unit: line.unit || 'قطعة',
-      };
+      return applyProductToLine(line, p, text);
     }));
   }
 
@@ -645,18 +681,30 @@ export function Sales() {
                 return (
                   <tr key={line.key}>
                     <td>
-                      <select
-                        aria-label="الصنف أو الخدمة"
-                        value={line.productId}
-                        onChange={(e) => setLineProduct(line.key, e.target.value)}
-                      >
-                        <option value="">اسم الصنف أو الخدمة</option>
+                      <input
+                        list={`products-list-${line.key}`}
+                        aria-label="الصنف أو الباركود"
+                        placeholder="اكتب الاسم أو امسح الباركود"
+                        value={line.query}
+                        onChange={(e) => onProductQueryChange(line.key, e.target.value)}
+                        onBlur={(e) => resolveProductLine(line.key, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            resolveProductLine(line.key, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        autoComplete="off"
+                      />
+                      <datalist id={`products-list-${line.key}`}>
                         {products.map((prod) => (
-                          <option key={prod.id} value={prod.id} disabled={(Number(prod.stock) || 0) <= 0}>
-                            {prod.name}{(Number(prod.stock) || 0) <= 0 ? ' — لا رصيد' : ''}
-                          </option>
+                          <option
+                            key={prod.id}
+                            value={prod.name}
+                            label={`${prod.name}${prod.barcode ? ` · ${prod.barcode}` : ''} · متاح ${qty(Number(prod.stock) || 0)}`}
+                          />
                         ))}
-                      </select>
+                      </datalist>
                     </td>
                     <td>
                       <select
