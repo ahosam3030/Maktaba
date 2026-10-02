@@ -615,7 +615,7 @@ export function Sales() {
           </div>
         </div>
 
-        <div className="purchase-form-grid" style={{ gridTemplateColumns: '1.2fr 0.9fr 0.9fr' }}>
+        <div className="sale-meta-row">
           <label>اسم العميل (اختياري)
             <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" />
           </label>
@@ -627,20 +627,20 @@ export function Sales() {
           </label>
         </div>
 
-        <div className="table-wrap" style={{ marginTop: 12 }}>
-          <table className="purchase-table sale-lines-table">
+        <div className="sale-lines-wrap">
+          <table className="sale-lines-table">
             <thead>
               <tr>
-                <th style={{ minWidth: 180 }}>الصنف / الخدمة</th>
-                <th style={{ width: 110 }}>الوحدة</th>
-                <th style={{ width: 90 }}>الكمية</th>
-                <th style={{ width: 100 }}>السعر</th>
-                <th style={{ width: 100 }}>الإجمالي</th>
-                <th style={{ width: 70 }}></th>
+                <th>الصنف / الخدمة</th>
+                <th>الوحدة</th>
+                <th>الكمية</th>
+                <th>السعر</th>
+                <th>الإجمالي</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {(cart.length ? cart : []).map((line) => {
+              {cart.map((line) => {
                 const lineTotal = Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
                 return (
                   <tr key={line.key}>
@@ -690,8 +690,10 @@ export function Sales() {
                         placeholder="0"
                       />
                     </td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>
-                      {lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}
+                    <td>
+                      <span className="line-total">
+                        {lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}
+                      </span>
                     </td>
                     <td>
                       <button className="danger-outline-btn" type="button" onClick={() => removeLine(line.key)}>حذف</button>
@@ -704,17 +706,18 @@ export function Sales() {
           {cart.length === 0 && (
             <div className="empty-state">اضغط «+ إضافة صنف» لإضافة صف في الفاتورة.</div>
           )}
-          {products.length === 0 && (
-            <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
-          )}
         </div>
 
-        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-start' }}>
+        {products.length === 0 && (
+          <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
+        )}
+
+        <div style={{ marginTop: 12 }}>
           <button className="add-line-btn" type="button" onClick={addEmptyRow}>+ إضافة صنف</button>
         </div>
 
-        <div className="invoice-bottom" style={{ marginTop: 16 }}>
-          <div className="purchase-form-grid sale-payment-fields" style={{ gridTemplateColumns: '1fr 1fr', maxWidth: 420 }}>
+        <div className="sale-pay-row">
+          <div className="sale-pay-fields">
             <label>خصم (ج)
               <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </label>
@@ -722,22 +725,21 @@ export function Sales() {
               <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0" />
             </label>
           </div>
-          <div className="totals-box">
-            <div><span>قبل الخصم</span><b>{money(subtotal)}</b></div>
-            <div><span>الخصم</span><b>{money(discountValue)}</b></div>
-            <div className="grand-total"><span>الصافي</span><b>{money(total)}</b></div>
-            <div><span>المتبقي</span><b>{money(remaining)}</b></div>
+          <div className="sale-summary">
+            <div>الصافي: <strong>{money(total)}</strong></div>
+            <div>المتبقي: <strong>{money(remaining)}</strong></div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-            <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
-              {saving ? 'جارٍ الحفظ...' : 'حفظ الفاتورة'}
-            </button>
-            <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
-              حفظ وطباعة
-            </button>
-            <button className="secondary-btn" type="button" onClick={printDraft}>طباعة بدون حفظ</button>
-            <button className="secondary-btn" type="button" onClick={resetForm}>فاتورة جديدة</button>
-          </div>
+        </div>
+
+        <div className="sale-actions">
+          <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
+            {saving ? 'جارٍ الحفظ...' : 'حفظ الفاتورة'}
+          </button>
+          <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
+            حفظ وطباعة
+          </button>
+          <button className="secondary-btn" type="button" onClick={printDraft}>طباعة بدون حفظ</button>
+          <button className="secondary-btn" type="button" onClick={resetForm}>فاتورة جديدة</button>
         </div>
       </section>
 
