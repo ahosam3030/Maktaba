@@ -430,7 +430,6 @@ export function Sales() {
               <span>خدمات علمية</span>
               <span>تصوير وطباعة</span>
               <span>أدوات مكتبية</span>
-              <span>تصميم وبرمجة</span>
             </div>
           </div>
         </div>
