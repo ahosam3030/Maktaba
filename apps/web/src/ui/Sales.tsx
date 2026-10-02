@@ -76,9 +76,9 @@ export function Sales() {
     const w = window.open('', '_blank');
     if (!w) { setNotice('اسمح بالنوافذ المنبثقة لطباعة الفاتورة.'); return; }
     const org = getStoredOrganization();
-    const centerName = org?.name || 'مركز المهندس للخدمات العلمية والطباعة وأدوات مكتبية';
+    const centerName = org?.name || 'مركز المهندس للخدمات العلمية والطباعة';
     const phone = '01127897245';
-    const address = 'المركز المركزي عدوة — أمام ديعسوب شارع / مستشفى شرق الجديدة — الإدارة التعليمية';
+    const address = 'شارع بورسعيد أمام الإدارة التعليمية الجديدة — شرق مستشفى العدوة المركزي';
     const items = sale.items || [];
     const maxRows = Math.max(10, items.length);
     const rows = Array.from({ length: maxRows }, (_, i) => {
@@ -339,14 +339,14 @@ export function Sales() {
         <div class="logo-box">م</div>
         <div class="brand">
           <div class="badge">مركز</div>
-          <h1>${escapeHtml(centerName.split(' لل')[0] || 'المهندس')}</h1>
-          <p class="sub">للخدمات العلمية والطباعة وأدوات مكتبية</p>
+          <h1>المهندس</h1>
+          <p class="sub">للخدمات العلمية والطباعة</p>
         </div>
         <div class="logo-box" style="background:linear-gradient(145deg,#e89b1a,#c98912)">📚</div>
       </div>
 
       <div class="contact-bar">
-        <span>📞 تليفون: ${escapeHtml(phone)}</span>
+        <span>📞 تليفون / واتساب: ${escapeHtml(phone)}</span>
         <span>📍 ${escapeHtml(address)}</span>
       </div>
 
