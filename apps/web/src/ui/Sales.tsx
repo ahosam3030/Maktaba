@@ -660,6 +660,20 @@ export function Sales() {
     finally { setSaving(false); }
   }
 
+  async function deleteSale(sale: Sale) {
+    if (!confirm(`حذف فاتورة البيع رقم ${sale.invoiceNumber}؟\nسيتم إرجاع رصيد البضاعة للمخزون إن وُجد.`)) return;
+    setSaving(true); setNotice('');
+    try {
+      await apiRequest(`/sales/${sale.id}`, { method: 'DELETE' });
+      setNotice(`تم حذف فاتورة ${sale.invoiceNumber}.`);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حذف الفاتورة.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function printDraft() {
     const lines = cart.filter((l) => l.query?.trim() && Number(l.quantity) > 0);
     if (lines.length === 0) { setNotice('أضف بنودًا قبل الطباعة.'); return; }
@@ -874,7 +888,12 @@ export function Sales() {
       </section>
 
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>سجل فواتير البيع</h2><p>أحدث 300 فاتورة محفوظة على الخادم.</p></div></div>
+        <div className="panel-heading">
+          <div>
+            <h2>سجل فواتير البيع</h2>
+            <p>أحدث 300 فاتورة. الحذف يعيد رصيد البضاعة للمخزون.</p>
+          </div>
+        </div>
         {loading ? <div className="empty-state">جارٍ تحميل الفواتير...</div> : (
           <div className="table-wrap">
             <table>
@@ -886,7 +905,7 @@ export function Sales() {
                   <th>الإجمالي</th>
                   <th>المدفوع</th>
                   <th>المتبقي</th>
-                  <th>طباعة</th>
+                  <th>إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -899,7 +918,17 @@ export function Sales() {
                     <td>{money(Number(sale.paidAmount))}</td>
                     <td>{money(Number(sale.total) - Number(sale.paidAmount))}</td>
                     <td>
-                      <button className="secondary-btn small" type="button" onClick={() => printSale(sale)}>طباعة</button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="secondary-btn small" type="button" onClick={() => printSale(sale)}>طباعة</button>
+                        <button
+                          className="danger-outline-btn"
+                          type="button"
+                          disabled={saving}
+                          onClick={() => void deleteSale(sale)}
+                        >
+                          حذف
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

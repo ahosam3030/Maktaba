@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
@@ -181,6 +181,35 @@ export class SalesController {
       }
       throw error;
     }
+  }
+
+  @Delete(':id')
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const sale = await this.prisma.sale.findFirst({
+      where: { id, organizationId: user.organizationId },
+      include: { items: true },
+    });
+    if (!sale) throw new NotFoundException('فاتورة البيع غير موجودة.');
+
+    return this.prisma.$transaction(async (tx) => {
+      // إرجاع كميات المخزون للبنود المرتبطة ببضاعة
+      for (const item of sale.items) {
+        if (!item.productId) continue;
+        await tx.stockMovement.create({
+          data: {
+            organizationId: user.organizationId,
+            productId: item.productId,
+            quantity: item.quantity, // موجب = إرجاع
+            type: 'ADJUSTMENT',
+            reason: `إلغاء بيع ${sale.invoiceNumber}`,
+            notes: `إرجاع رصيد بعد حذف فاتورة البيع ${sale.invoiceNumber}`,
+          },
+        });
+      }
+      await tx.saleItem.deleteMany({ where: { saleId: sale.id } });
+      await tx.sale.delete({ where: { id: sale.id } });
+      return { ok: true, invoiceNumber: sale.invoiceNumber };
+    });
   }
 
   private async currentStockTx(
