@@ -389,141 +389,168 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         </div>
       </section>
 
-      <section className="purchase-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>تقرير منتج — تاريخ الأسعار ومقارنة الشركات</h2>
-            <p>اعرف هل السعر بيرتفع ولا بينزل، وقارن بين الموردين من فواتير الوارد المسجّلة.</p>
-          </div>
-        </div>
-        <div className="purchase-form-grid" style={{ gridTemplateColumns: '1.6fr 0.8fr auto auto', alignItems: 'end' }}>
-          <label>
-            ابحث عن منتج (اسم أو جزء منه)
-            <input
-              value={productReportQuery}
-              onChange={(e) => setProductReportQuery(e.target.value)}
-              list="product-report-list"
-              placeholder="مثال: دبوس"
-            />
-            <datalist id="product-report-list">
-              {productNames.map((n) => <option key={n} value={n} />)}
-            </datalist>
-          </label>
-          <label>
-            الوحدة
-            <select value={productReportUnit} onChange={(e) => setProductReportUnit(e.target.value as 'ALL' | 'PIECE' | 'PACK')}>
-              <option value="ALL">الكل</option>
-              <option value="PACK">علبة</option>
-              <option value="PIECE">قطعة</option>
-            </select>
-          </label>
-          <button className="secondary-btn" type="button" onClick={printProductReport} disabled={!productReport?.stats}>طباعة التقرير</button>
-          <button className="secondary-btn" type="button" onClick={() => setProductReportQuery('')}>مسح</button>
+      <section className="purchase-panel product-report-panel">
+        <div className="product-report-search">
+          <input
+            value={productReportQuery}
+            onChange={(e) => setProductReportQuery(e.target.value)}
+            list="product-report-list"
+            placeholder="ابحث عن منتج (اسم أو جزء من الاسم أو باركود)"
+          />
+          <datalist id="product-report-list">
+            {productNames.map((n) => <option key={n} value={n} />)}
+          </datalist>
         </div>
 
         {productReportQuery.trim() && !productReport?.stats && (
           <div className="empty-state">لا مشتريات مسجّلة لهذا الاسم. سجّل فواتير وارد أولًا.</div>
         )}
 
-        {productReport?.stats && (
-          <>
-            <h3 style={{ margin: '16px 0 10px', fontSize: 16 }}>
-              تقرير المنتج: {productReport.stats.name}
-              <span style={{ fontWeight: 500, color: '#5a7076' }}> ({productReport.stats.unitLabel})</span>
-            </h3>
-            <div className="stats-grid" style={{ marginBottom: 16 }}>
-              <article className="stat-card"><span>آخر سعر</span><strong>{money(productReport.stats.last)}</strong></article>
-              <article className="stat-card"><span>أقل سعر</span><strong>{money(productReport.stats.min)}</strong></article>
-              <article className="stat-card"><span>أعلى سعر</span><strong>{money(productReport.stats.max)}</strong></article>
-              <article className="stat-card"><span>المتوسط</span><strong>{money(productReport.stats.avg)}</strong></article>
-              <article className="stat-card"><span>مرات الشراء</span><strong>{productReport.stats.count}</strong></article>
-            </div>
+        {productReport?.stats && (() => {
+          const s = productReport.stats;
+          // نقاط الرسم من الأقدم للأحدث
+          const chartPts = [...productReport.rows].reverse();
+          const prices = chartPts.map((p) => p.unitCost);
+          const minP = Math.min(...prices);
+          const maxP = Math.max(...prices);
+          const range = Math.max(1, maxP - minP);
+          const w = 560;
+          const h = 160;
+          const pad = 20;
+          const coords = chartPts.map((p, i) => {
+            const x = pad + (chartPts.length === 1 ? (w - pad * 2) / 2 : (i / (chartPts.length - 1)) * (w - pad * 2));
+            const y = pad + (1 - (p.unitCost - minP) / range) * (h - pad * 2);
+            return { x, y, p };
+          });
+          const polyline = coords.map((c) => `${c.x},${c.y}`).join(' ');
 
-            <div className="panel-heading" style={{ marginTop: 8 }}>
-              <div><h2 style={{ fontSize: 15 }}>المقارنة بين الشركات (الأرخص أولًا)</h2></div>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>الشركة</th>
-                    <th>آخر سعر</th>
-                    <th>تاريخه</th>
-                    <th>أقل</th>
-                    <th>أعلى</th>
-                    <th>المتوسط</th>
-                    <th>مرات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productReport.bySupplier.map((r) => (
-                    <tr key={r.supplier}>
-                      <td>{r.supplier}</td>
-                      <td>{money(r.last)}</td>
-                      <td>{r.lastDate}</td>
-                      <td>{money(r.min)}</td>
-                      <td>{money(r.max)}</td>
-                      <td>{money(r.avg)}</td>
-                      <td>{r.count}</td>
-                    </tr>
+          return (
+            <div className="product-report-card">
+              <div className="product-report-head">
+                <h2>
+                  تقرير المنتج: {s.name}
+                  <span className="unit-tag">({s.unitLabel === 'علبة' ? 'بالعلبة' : s.unitLabel === 'قطعة' ? 'بالقطعة' : s.unitLabel})</span>
+                </h2>
+                <div className="product-report-kpis">
+                  <div><span>آخر سعر</span><b>{s.last.toLocaleString('ar-EG')} ج</b></div>
+                  <div><span>أقل سعر</span><b>{s.min.toLocaleString('ar-EG')}</b></div>
+                  <div><span>أعلى سعر</span><b>{s.max.toLocaleString('ar-EG')}</b></div>
+                  <div><span>المتوسط</span><b>{Math.round(s.avg).toLocaleString('ar-EG')}</b></div>
+                  <div><span>مرات الشراء</span><b>{s.count}</b></div>
+                </div>
+                <div className="product-report-unit-row">
+                  <label>
+                    الوحدة (الأسعار بتتقارن لنفس الوحدة بس)
+                    <select value={productReportUnit} onChange={(e) => setProductReportUnit(e.target.value as 'ALL' | 'PIECE' | 'PACK')}>
+                      <option value="ALL">الكل</option>
+                      <option value="PACK">علبة</option>
+                      <option value="PIECE">قطعة</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="product-report-chart">
+                <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="180" role="img" aria-label="منحنى الأسعار">
+                  <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="#dbe5e5" />
+                  <polyline fill="none" stroke="#0f766e" strokeWidth="2.5" points={polyline} />
+                  {coords.map((c, i) => (
+                    <g key={i}>
+                      <circle cx={c.x} cy={c.y} r="5" fill="#0f766e" />
+                      <text x={c.x} y={c.y - 10} textAnchor="middle" fontSize="11" fill="#5a7076">{c.p.unitCost}</text>
+                    </g>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </svg>
+                <div className="product-report-actions">
+                  <button className="secondary-btn" type="button" onClick={printProductReport}>طباعة التقرير</button>
+                  <button className="secondary-btn" type="button" onClick={() => setProductReportQuery('')}>كل المنتجات</button>
+                </div>
+              </div>
 
-            <div className="panel-heading" style={{ marginTop: 16 }}>
-              <div><h2 style={{ fontSize: 15 }}>تاريخ الأسعار</h2></div>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>التاريخ</th>
-                    <th>الشركة</th>
-                    <th>الكمية</th>
-                    <th>السعر</th>
-                    <th>التغير</th>
-                    <th>الفاتورة</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productReport.rows.map((r, idx) => {
-                    const ch = r.change === null
-                      ? <span style={{ color: '#647b80' }}>أول شراء</span>
-                      : r.change > 0
-                        ? <span className="price-up">{r.change.toFixed(2)}+ ▲</span>
-                        : r.change < 0
-                          ? <span className="price-down">{r.change.toFixed(2)} ▼</span>
-                          : <span className="price-same">بدون تغيير</span>;
-                    return (
-                      <tr key={`${r.invoiceId}-${idx}`}>
-                        <td>{r.date}</td>
-                        <td>{r.supplier}</td>
-                        <td>{r.quantity} {r.unit}</td>
-                        <td>{money(r.unitCost)}</td>
-                        <td>{ch}</td>
-                        <td>{r.invoiceNumber}</td>
-                        <td>
-                          <button
-                            className="secondary-btn small"
-                            type="button"
-                            onClick={() => {
-                              const inv = invoices.find((i) => i.id === r.invoiceId);
-                              if (inv) printInvoice(inv);
-                            }}
-                          >
-                            طباعة الفاتورة
-                          </button>
-                        </td>
+              <div className="product-report-block">
+                <h3>المقارنة بين الشركات (الأرخص أولًا)</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>الشركة</th>
+                        <th>آخر سعر</th>
+                        <th>تاريخه</th>
+                        <th>أقل</th>
+                        <th>أعلى</th>
+                        <th>المتوسط</th>
+                        <th>مرات</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {productReport.bySupplier.map((r) => (
+                        <tr key={r.supplier}>
+                          <td>{r.supplier}</td>
+                          <td>{r.last.toLocaleString('ar-EG')}</td>
+                          <td>{r.lastDate}</td>
+                          <td>{r.min.toLocaleString('ar-EG')}</td>
+                          <td>{r.max.toLocaleString('ar-EG')}</td>
+                          <td>{Math.round(r.avg).toLocaleString('ar-EG')}</td>
+                          <td>{r.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="product-report-block">
+                <h3>تاريخ الأسعار</h3>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>التاريخ</th>
+                        <th>الشركة</th>
+                        <th>الكمية</th>
+                        <th>السعر</th>
+                        <th>التغير</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productReport.rows.map((r, idx) => {
+                        const ch = r.change === null
+                          ? <span style={{ color: '#647b80' }}>أول شراء</span>
+                          : r.change > 0
+                            ? <span className="price-up">{Math.abs(r.change).toFixed(0)}+ ▲</span>
+                            : r.change < 0
+                              ? <span className="price-down">{Math.abs(r.change).toFixed(0)}- ▼</span>
+                              : <span className="price-same">—</span>;
+                        return (
+                          <tr key={`${r.invoiceId}-${idx}`}>
+                            <td>{r.date}</td>
+                            <td>{r.supplier}</td>
+                            <td>{r.unit} {r.quantity}</td>
+                            <td>{r.unitCost.toLocaleString('ar-EG')}</td>
+                            <td>{ch}</td>
+                            <td>
+                              <button
+                                className="secondary-btn small"
+                                type="button"
+                                onClick={() => {
+                                  const inv = invoices.find((i) => i.id === r.invoiceId);
+                                  if (inv) printInvoice(inv);
+                                }}
+                              >
+                                طباعة
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </>
-        )}
+          );
+        })()}
       </section>
 
       <section className="purchase-panel">
