@@ -1,0 +1,83 @@
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from './prisma.service';
+import * as bcrypt from 'bcryptjs';
+import { ALL_PERMISSIONS, isAdminRole, parsePermissions } from './auth';
+
+@Injectable()
+export class AuthService {
+  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService) {}
+
+  async register(input: { organizationName?: string; slug?: string; phone?: string; fullName?: string; email?: string; password?: string }) {
+    const organizationName = input.organizationName?.trim();
+    const slug = input.slug?.trim().toLowerCase();
+    const fullName = input.fullName?.trim();
+    const email = input.email?.trim().toLowerCase();
+    const password = input.password ?? '';
+    if (!organizationName || !slug || !fullName || !email || !password) throw new BadRequestException('كل الحقول الأساسية مطلوبة.');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new BadRequestException('المعرّف المختصر يجب أن يكون إنجليزيًا صغيرًا، ويمكن أن يحتوي على أرقام وشرطات.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('البريد الإلكتروني غير صحيح.');
+    if (password.length < 10) throw new BadRequestException('كلمة المرور يجب ألا تقل عن 10 أحرف.');
+    const passwordHash = await bcrypt.hash(password, 12);
+    const allPerms = JSON.stringify([...ALL_PERMISSIONS]);
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const organization = await tx.organization.create({ data: { name: organizationName, slug, phone: input.phone?.trim() || null } });
+        const user = await tx.user.create({
+          data: {
+            organizationId: organization.id,
+            fullName,
+            email,
+            passwordHash,
+            role: 'OWNER',
+            permissions: allPerms,
+          },
+        });
+        return { organization, user };
+      });
+      return this.issue(result.user, result.organization);
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
+        throw new ConflictException('البريد الإلكتروني أو معرّف المكتبة مستخدم بالفعل.');
+      }
+      throw error;
+    }
+  }
+
+  async login(input: { email?: string; password?: string }) {
+    const email = input.email?.trim().toLowerCase();
+    const password = input.password ?? '';
+    if (!email || !password) throw new BadRequestException('أدخل البريد الإلكتروني وكلمة المرور.');
+    const user = await this.prisma.user.findUnique({ where: { email }, include: { organization: true } });
+    if (!user || !user.active || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new UnauthorizedException('بيانات الدخول غير صحيحة.');
+    }
+    return this.issue(user, user.organization);
+  }
+
+  private issue(
+    user: { id: string; organizationId: string; fullName: string; email: string; role: string; permissions?: string },
+    organization: { id: string; name: string; slug: string },
+  ) {
+    let permissions = parsePermissions(user.permissions);
+    if (isAdminRole(user.role)) permissions = [...ALL_PERMISSIONS];
+    const accessToken = this.jwt.sign({
+      userId: user.id,
+      organizationId: user.organizationId,
+      role: user.role,
+      permissions,
+    });
+    return {
+      accessToken,
+      tokenType: 'Bearer' as const,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        permissions,
+      },
+      organization: { id: organization.id, name: organization.name, slug: organization.slug },
+    };
+  }
+}

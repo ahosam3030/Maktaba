@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: library_erp
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: change_this_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - library_db:/var/lib/postgresql/data
+volumes:
+  library_db:
