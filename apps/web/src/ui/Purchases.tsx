@@ -43,6 +43,8 @@ export function Purchases() {
   const [paid, setPaid] = useState('0');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [productReportQuery, setProductReportQuery] = useState('');
+  const [productReportUnit, setProductReportUnit] = useState<'ALL' | 'PIECE' | 'PACK'>('ALL');
 
   const [paymentSupplierId, setPaymentSupplierId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -193,6 +195,125 @@ export function Purchases() {
   );
   const selectedInvoice = invoices.find((i) => i.id === returnInvoiceId);
 
+  type PricePoint = {
+    date: string;
+    supplier: string;
+    productName: string;
+    unit: string;
+    quantity: number;
+    unitCost: number;
+    invoiceNumber: string;
+    invoiceId: string;
+  };
+
+  const allPricePoints = useMemo(() => {
+    const points: PricePoint[] = [];
+    for (const inv of invoices) {
+      for (const it of inv.items || []) {
+        points.push({
+          date: String(inv.invoiceDate).slice(0, 10),
+          supplier: inv.supplier?.name || '—',
+          productName: it.productName,
+          unit: it.unit === 'PACK' ? 'علبة' : 'قطعة',
+          quantity: num(it.quantity),
+          unitCost: num(it.unitCost),
+          invoiceNumber: inv.invoiceNumber,
+          invoiceId: inv.id,
+        });
+      }
+    }
+    return points.sort((a, b) => a.date.localeCompare(b.date));
+  }, [invoices]);
+
+  const productNames = useMemo(() => {
+    const set = new Set(allPricePoints.map((p) => p.productName));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [allPricePoints]);
+
+  const productReport = useMemo(() => {
+    const q = productReportQuery.trim().toLowerCase();
+    if (!q) return null;
+    let rows = allPricePoints.filter((p) => p.productName.toLowerCase().includes(q));
+    if (productReportUnit === 'PIECE') rows = rows.filter((p) => p.unit === 'قطعة');
+    if (productReportUnit === 'PACK') rows = rows.filter((p) => p.unit === 'علبة');
+    if (rows.length === 0) return { name: productReportQuery.trim(), rows: [] as PricePoint[], bySupplier: [] as Array<{ supplier: string; last: number; min: number; max: number; avg: number; count: number; lastDate: string }>, stats: null };
+
+    const prices = rows.map((r) => r.unitCost);
+    const last = rows[rows.length - 1];
+    const stats = {
+      last: last.unitCost,
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+      avg: prices.reduce((s, x) => s + x, 0) / prices.length,
+      count: rows.length,
+      name: last.productName,
+      unitLabel: productReportUnit === 'PACK' ? 'علبة' : productReportUnit === 'PIECE' ? 'قطعة' : 'كل الوحدات',
+    };
+
+    const supplierMap = new Map<string, PricePoint[]>();
+    for (const r of rows) {
+      if (!supplierMap.has(r.supplier)) supplierMap.set(r.supplier, []);
+      supplierMap.get(r.supplier)!.push(r);
+    }
+    const bySupplier = Array.from(supplierMap.entries()).map(([supplier, list]) => {
+      const ps = list.map((x) => x.unitCost);
+      const lastRow = list[list.length - 1];
+      return {
+        supplier,
+        last: lastRow.unitCost,
+        lastDate: lastRow.date,
+        min: Math.min(...ps),
+        max: Math.max(...ps),
+        avg: ps.reduce((s, x) => s + x, 0) / ps.length,
+        count: list.length,
+      };
+    }).sort((a, b) => a.min - b.min);
+
+    // with change vs previous purchase of same product
+    const history = rows.map((r, i) => {
+      const prev = i > 0 ? rows[i - 1].unitCost : null;
+      const change = prev === null ? null : r.unitCost - prev;
+      return { ...r, change, isFirst: i === 0 };
+    }).reverse();
+
+    return { name: stats.name, rows: history, bySupplier, stats };
+  }, [allPricePoints, productReportQuery, productReportUnit]);
+
+  function printProductReport() {
+    if (!productReport?.stats) { setNotice('اختر منتجًا له مشتريات أولًا.'); return; }
+    const w = window.open('', '_blank');
+    if (!w) { setNotice('اسمح بالنوافذ المنبثقة.'); return; }
+    const s = productReport.stats;
+    const supplierRows = productReport.bySupplier.map((r) =>
+      `<tr><td>${escapeHtml(r.supplier)}</td><td>${r.last.toFixed(2)}</td><td>${r.lastDate}</td><td>${r.min.toFixed(2)}</td><td>${r.max.toFixed(2)}</td><td>${r.avg.toFixed(2)}</td><td>${r.count}</td></tr>`
+    ).join('');
+    const histRows = productReport.rows.map((r) => {
+      const ch = r.change === null ? 'أول شراء' : (r.change > 0 ? `+${r.change.toFixed(2)} ▲` : r.change < 0 ? `${r.change.toFixed(2)} ▼` : 'بدون تغيير');
+      return `<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.supplier)}</td><td>${r.quantity} ${escapeHtml(r.unit)}</td><td>${r.unitCost.toFixed(2)}</td><td>${ch}</td><td>${escapeHtml(r.invoiceNumber)}</td></tr>`;
+    }).join('');
+    w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير ${escapeHtml(s.name)}</title>
+<style>body{font-family:Tahoma,Arial;padding:16px}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th,td{border:1px solid #ccc;padding:6px 8px;text-align:center}th{background:#eef5f3}
+h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.stats div{border:1px solid #ddd;border-radius:8px;padding:8px 14px;background:#f7faf9}</style></head><body>
+<h1>تقرير المنتج: ${escapeHtml(s.name)} (${escapeHtml(s.unitLabel)})</h1>
+<div class="stats">
+<div><b>آخر سعر</b><br>${s.last.toFixed(2)}</div>
+<div><b>أقل</b><br>${s.min.toFixed(2)}</div>
+<div><b>أعلى</b><br>${s.max.toFixed(2)}</div>
+<div><b>المتوسط</b><br>${s.avg.toFixed(2)}</div>
+<div><b>مرات الشراء</b><br>${s.count}</div>
+</div>
+<h2>المقارنة بين الشركات (الأرخص أولًا)</h2>
+<table><thead><tr><th>الشركة</th><th>آخر سعر</th><th>تاريخه</th><th>أقل</th><th>أعلى</th><th>المتوسط</th><th>مرات</th></tr></thead>
+<tbody>${supplierRows}</tbody></table>
+<h2>تاريخ الأسعار</h2>
+<table><thead><tr><th>التاريخ</th><th>الشركة</th><th>الكمية</th><th>السعر</th><th>التغير</th><th>رقم الفاتورة</th></tr></thead>
+<tbody>${histRows}</tbody></table>
+<script>window.onload=()=>window.print()</script></body></html>`);
+    w.document.close();
+  }
+
   return (
     <div className="purchases-page">
       <div className="purchase-title">
@@ -266,6 +387,143 @@ export function Purchases() {
           <label>الكمية<input type="number" min="0.001" value={returnQty} onChange={(e) => setReturnQty(e.target.value)} /></label>
           <button className="primary-btn" type="button" onClick={() => void saveReturn()}>حفظ المرتجع</button>
         </div>
+      </section>
+
+      <section className="purchase-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>تقرير منتج — تاريخ الأسعار ومقارنة الشركات</h2>
+            <p>اعرف هل السعر بيرتفع ولا بينزل، وقارن بين الموردين من فواتير الوارد المسجّلة.</p>
+          </div>
+        </div>
+        <div className="purchase-form-grid" style={{ gridTemplateColumns: '1.6fr 0.8fr auto auto', alignItems: 'end' }}>
+          <label>
+            ابحث عن منتج (اسم أو جزء منه)
+            <input
+              value={productReportQuery}
+              onChange={(e) => setProductReportQuery(e.target.value)}
+              list="product-report-list"
+              placeholder="مثال: دبوس"
+            />
+            <datalist id="product-report-list">
+              {productNames.map((n) => <option key={n} value={n} />)}
+            </datalist>
+          </label>
+          <label>
+            الوحدة
+            <select value={productReportUnit} onChange={(e) => setProductReportUnit(e.target.value as 'ALL' | 'PIECE' | 'PACK')}>
+              <option value="ALL">الكل</option>
+              <option value="PACK">علبة</option>
+              <option value="PIECE">قطعة</option>
+            </select>
+          </label>
+          <button className="secondary-btn" type="button" onClick={printProductReport} disabled={!productReport?.stats}>طباعة التقرير</button>
+          <button className="secondary-btn" type="button" onClick={() => setProductReportQuery('')}>مسح</button>
+        </div>
+
+        {productReportQuery.trim() && !productReport?.stats && (
+          <div className="empty-state">لا مشتريات مسجّلة لهذا الاسم. سجّل فواتير وارد أولًا.</div>
+        )}
+
+        {productReport?.stats && (
+          <>
+            <h3 style={{ margin: '16px 0 10px', fontSize: 16 }}>
+              تقرير المنتج: {productReport.stats.name}
+              <span style={{ fontWeight: 500, color: '#5a7076' }}> ({productReport.stats.unitLabel})</span>
+            </h3>
+            <div className="stats-grid" style={{ marginBottom: 16 }}>
+              <article className="stat-card"><span>آخر سعر</span><strong>{money(productReport.stats.last)}</strong></article>
+              <article className="stat-card"><span>أقل سعر</span><strong>{money(productReport.stats.min)}</strong></article>
+              <article className="stat-card"><span>أعلى سعر</span><strong>{money(productReport.stats.max)}</strong></article>
+              <article className="stat-card"><span>المتوسط</span><strong>{money(productReport.stats.avg)}</strong></article>
+              <article className="stat-card"><span>مرات الشراء</span><strong>{productReport.stats.count}</strong></article>
+            </div>
+
+            <div className="panel-heading" style={{ marginTop: 8 }}>
+              <div><h2 style={{ fontSize: 15 }}>المقارنة بين الشركات (الأرخص أولًا)</h2></div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الشركة</th>
+                    <th>آخر سعر</th>
+                    <th>تاريخه</th>
+                    <th>أقل</th>
+                    <th>أعلى</th>
+                    <th>المتوسط</th>
+                    <th>مرات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productReport.bySupplier.map((r) => (
+                    <tr key={r.supplier}>
+                      <td>{r.supplier}</td>
+                      <td>{money(r.last)}</td>
+                      <td>{r.lastDate}</td>
+                      <td>{money(r.min)}</td>
+                      <td>{money(r.max)}</td>
+                      <td>{money(r.avg)}</td>
+                      <td>{r.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="panel-heading" style={{ marginTop: 16 }}>
+              <div><h2 style={{ fontSize: 15 }}>تاريخ الأسعار</h2></div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>التاريخ</th>
+                    <th>الشركة</th>
+                    <th>الكمية</th>
+                    <th>السعر</th>
+                    <th>التغير</th>
+                    <th>الفاتورة</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productReport.rows.map((r, idx) => {
+                    const ch = r.change === null
+                      ? <span style={{ color: '#647b80' }}>أول شراء</span>
+                      : r.change > 0
+                        ? <span className="price-up">{r.change.toFixed(2)}+ ▲</span>
+                        : r.change < 0
+                          ? <span className="price-down">{r.change.toFixed(2)} ▼</span>
+                          : <span className="price-same">بدون تغيير</span>;
+                    return (
+                      <tr key={`${r.invoiceId}-${idx}`}>
+                        <td>{r.date}</td>
+                        <td>{r.supplier}</td>
+                        <td>{r.quantity} {r.unit}</td>
+                        <td>{money(r.unitCost)}</td>
+                        <td>{ch}</td>
+                        <td>{r.invoiceNumber}</td>
+                        <td>
+                          <button
+                            className="secondary-btn small"
+                            type="button"
+                            onClick={() => {
+                              const inv = invoices.find((i) => i.id === r.invoiceId);
+                              if (inv) printInvoice(inv);
+                            }}
+                          >
+                            طباعة الفاتورة
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="purchase-panel">
