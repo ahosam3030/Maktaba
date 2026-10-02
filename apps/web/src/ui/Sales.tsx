@@ -3,7 +3,7 @@ import { apiRequest } from '../data/api';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
-type CartLine = { key: string; productId: string; unit: string; quantity: string; unitPrice: string };
+type CartLine = { key: string; productId: string; query: string; unit: string; quantity: string; unitPrice: string };
 const SALE_UNITS = ['قطعة', 'ورقة', 'نسخة', 'علبة', 'دستة', 'كرتونة', 'رزمة', 'خدمة'] as const;
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
