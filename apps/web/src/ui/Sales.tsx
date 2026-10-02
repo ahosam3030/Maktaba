@@ -605,6 +605,10 @@ export function Sales() {
       const stock = Number(p?.stock) || 0;
       const q = Number(line.quantity) || 0;
       if (!p) { setNotice('صنف غير موجود في المخزون.'); return; }
+      if (stock <= 0) {
+        setNotice(`«${p.name}» رصيده صفر. سجّل وارد من المشتريات ثم حدّث البيانات.`);
+        return;
+      }
       if (q > stock) { setNotice(`الكمية المطلوبة من «${p.name}» أكبر من المتاح (${stock}).`); return; }
     }
     if (discountValue > subtotal) { setNotice('الخصم لا يمكن أن يتجاوز إجمالي الفاتورة.'); return; }
@@ -712,6 +716,8 @@ export function Sales() {
             <tbody>
               {cart.map((line) => {
                 const lineTotal = Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
+                const matched = products.find((p) => p.id === line.productId);
+                const matchedStock = matched ? Number(matched.stock) || 0 : 0;
                 return (
                   <tr key={line.key}>
                     <td>
@@ -729,6 +735,12 @@ export function Sales() {
                           }
                         }}
                         autoComplete="off"
+                        style={{
+                          borderColor: line.productId
+                            ? (matchedStock > 0 ? '#20a486' : '#d97706')
+                            : (line.query.trim() ? '#e8a0a0' : undefined),
+                          background: line.productId ? (matchedStock > 0 ? '#f0faf6' : '#fff8eb') : undefined,
+                        }}
                       />
                       <datalist id={`products-list-${line.key}`}>
                         {products.map((prod) => (
@@ -739,6 +751,16 @@ export function Sales() {
                           />
                         ))}
                       </datalist>
+                      {line.productId && matched && (
+                        <div style={{ fontSize: 11, marginTop: 4, color: matchedStock > 0 ? '#0f766e' : '#b45309' }}>
+                          {matchedStock > 0 ? `✓ مربوط · متاح ${qty(matchedStock)}` : `⚠ مربوط لكن الرصيد صفر`}
+                        </div>
+                      )}
+                      {!line.productId && line.query.trim() && (
+                        <div style={{ fontSize: 11, marginTop: 4, color: '#b42318' }}>
+                          غير مربوط — اضغط Enter أو اختر من القائمة
+                        </div>
+                      )}
                     </td>
                     <td>
                       <select
