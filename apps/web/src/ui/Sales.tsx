@@ -33,7 +33,14 @@ export function Sales() {
     setLoading(true); setError('');
     try {
       const [stock, records] = await Promise.all([apiRequest<Product[]>('/inventory'), apiRequest<Sale[]>('/sales')]);
-      setProducts(stock); setSales(records);
+      // تطبيع الأرقام القادمة من الـ API
+      setProducts((stock || []).map((p) => ({
+        ...p,
+        stock: Number(p.stock) || 0,
+        salePrice: Number(p.salePrice) || 0,
+        currentCost: Number(p.currentCost) || 0,
+      })));
+      setSales(records || []);
     } catch (e) { setError(e instanceof Error ? e.message : 'تعذر تحميل بيانات المبيعات.'); }
     finally { setLoading(false); }
   }, []);
@@ -45,13 +52,24 @@ export function Sales() {
   const total = Math.max(0, subtotal - discountValue);
 
   function addProduct(product: Product) {
-    setNotice('');
-    if (product.stock <= 0) { setNotice('الصنف رصيده غير كافٍ للبيع.'); return; }
+    const stock = Number(product.stock) || 0;
+    if (stock <= 0) {
+      setNotice(`«${product.name}» رصيده صفر. سجّل فاتورة وارد من المشتريات أو تسوية مخزون أولًا.`);
+      return;
+    }
     setCart((old) => {
       const found = old.find((line) => line.productId === product.id);
-      if (found) return old.map((line) => line.productId === product.id ? { ...line, quantity: String(Math.min(product.stock, (Number(line.quantity) || 0) + 1)) } : line);
-      return [...old, { productId: product.id, quantity: '1', unitPrice: String(product.salePrice || 0) }];
+      if (found) {
+        const nextQty = Math.min(stock, (Number(found.quantity) || 0) + 1);
+        return old.map((line) => line.productId === product.id ? { ...line, quantity: String(nextQty) } : line);
+      }
+      return [...old, {
+        productId: product.id,
+        quantity: '1',
+        unitPrice: String(Number(product.salePrice) || 0),
+      }];
     });
+    setNotice(`تمت إضافة «${product.name}» إلى الفاتورة.`);
   }
 
   function printSale(sale: Sale) {
@@ -433,29 +451,95 @@ export function Sales() {
           <label>اسم العميل (اختياري)<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" /></label>
           <label>بحث عن صنف أو باركود<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتب اسم الصنف أو امسح الباركود" /></label>
         </div>
-        <div className="product-chips">{filteredProducts.filter((p) => p.stock > 0).slice(0, 16).map((p) => (
-          <button key={p.id} type="button" onClick={() => addProduct(p)}>{p.name} · المتاح {qty(p.stock)}</button>
-        ))}</div>
+
+        <div className="table-wrap" style={{ marginBottom: 12 }}>
+          <table className="purchase-table">
+            <thead>
+              <tr>
+                <th>الأصناف المتاحة للبيع</th>
+                <th>الرصيد</th>
+                <th>سعر البيع</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProducts.slice(0, 30).map((p) => {
+                const stock = Number(p.stock) || 0;
+                return (
+                  <tr key={p.id}>
+                    <td>{p.name}{p.barcode ? ` · ${p.barcode}` : ''}</td>
+                    <td>{qty(stock)}</td>
+                    <td>{money(Number(p.salePrice) || 0)}</td>
+                    <td>
+                      <button
+                        className="primary-btn small"
+                        type="button"
+                        disabled={stock <= 0}
+                        onClick={() => addProduct(p)}
+                      >
+                        {stock <= 0 ? 'لا رصيد' : 'إضافة'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filteredProducts.length === 0 && (
+            <div className="empty-state">
+              {products.length === 0
+                ? 'لا توجد أصناف. سجّل فاتورة وارد من شاشة المشتريات أولًا.'
+                : 'لا نتائج لهذا البحث.'}
+            </div>
+          )}
+        </div>
+
+        <div className="panel-heading" style={{ marginTop: 8 }}>
+          <div><h2 style={{ fontSize: 16 }}>أصناف الفاتورة</h2></div>
+          <span className="count-badge">{cart.length}</span>
+        </div>
         <div className="table-wrap">
           <table className="purchase-table">
             <thead><tr><th>الصنف</th><th>المتاح</th><th>الكمية</th><th>سعر البيع</th><th>الإجمالي</th><th></th></tr></thead>
             <tbody>
               {cart.map((line) => {
                 const p = products.find((item) => item.id === line.productId);
+                const stock = Number(p?.stock) || 0;
                 return (
                   <tr key={line.productId}>
                     <td>{p?.name || 'صنف'}</td>
-                    <td>{qty(p?.stock || 0)}</td>
-                    <td><input aria-label="الكمية" type="number" min="0.001" step="0.001" max={p?.stock || 0} value={line.quantity} onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, quantity: e.target.value } : x))} /></td>
-                    <td><input aria-label="سعر البيع" type="number" min="0" step="0.01" value={line.unitPrice} onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, unitPrice: e.target.value } : x))} /></td>
+                    <td>{qty(stock)}</td>
+                    <td>
+                      <input
+                        aria-label="الكمية"
+                        type="number"
+                        min="0.001"
+                        step="0.001"
+                        max={stock || undefined}
+                        value={line.quantity}
+                        onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, quantity: e.target.value } : x))}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label="سعر البيع"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={line.unitPrice}
+                        onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, unitPrice: e.target.value } : x))}
+                      />
+                    </td>
                     <td>{money(Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0))}</td>
-                    <td><button className="icon-btn" type="button" aria-label="حذف الصنف" onClick={() => setCart((old) => old.filter((x) => x.productId !== line.productId))}>×</button></td>
+                    <td>
+                      <button className="icon-btn" type="button" aria-label="حذف الصنف" onClick={() => setCart((old) => old.filter((x) => x.productId !== line.productId))}>×</button>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {cart.length === 0 && <div className="empty-state">اختر صنفًا من القائمة لإضافته إلى الفاتورة.</div>}
+          {cart.length === 0 && <div className="empty-state">اضغط «إضافة» بجانب الصنف لنقله إلى الفاتورة.</div>}
         </div>
         <div className="invoice-bottom">
           <div className="purchase-form-grid sale-payment-fields">
@@ -468,10 +552,10 @@ export function Sales() {
             <div className="grand-total"><span>الصافي</span><b>{money(total)}</b></div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="primary-btn" type="button" disabled={saving || cart.length === 0} onClick={() => void saveSale(false)}>
+            <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
               {saving ? 'جارٍ الحفظ...' : 'حفظ فاتورة البيع'}
             </button>
-            <button className="secondary-btn" type="button" disabled={saving || cart.length === 0} onClick={() => void saveSale(true)}>
+            <button className="secondary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
               حفظ وطباعة
             </button>
           </div>
