@@ -30,15 +30,30 @@ export function Purchases() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  type DraftLine = {
+    key: string;
+    barcode: string;
+    productName: string;
+    unit: 'PIECE' | 'PACK';
+    quantity: string;
+    piecesPerPack: string;
+    unitCost: string;
+  };
+  const newDraftKey = () => `P-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const emptyDraftLine = (): DraftLine => ({
+    key: newDraftKey(),
+    barcode: '',
+    productName: '',
+    unit: 'PIECE',
+    quantity: '1',
+    piecesPerPack: '1',
+    unitCost: '',
+  });
+
   const [supplierName, setSupplierName] = useState('');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [productName, setProductName] = useState('');
-  const [unit, setUnit] = useState<'PIECE' | 'PACK'>('PIECE');
-  const [quantity, setQuantity] = useState('1');
-  const [unitCost, setUnitCost] = useState('');
-  const [piecesPerPack, setPiecesPerPack] = useState('1');
-  const [lines, setLines] = useState<Array<{ productName: string; unit: 'PIECE' | 'PACK'; quantity: number; unitCost: number; piecesPerPack: number }>>([]);
+  const [lines, setLines] = useState<DraftLine[]>([emptyDraftLine(), emptyDraftLine(), emptyDraftLine()]);
   const [discount, setDiscount] = useState('0');
   const [paid, setPaid] = useState('0');
   const [notes, setNotes] = useState('');
@@ -79,25 +94,98 @@ export function Purchases() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const subtotal = useMemo(() => lines.reduce((s, l) => s + l.quantity * l.unitCost, 0), [lines]);
+  const filledLines = useMemo(() => lines.filter((l) => l.productName.trim() && Number(l.quantity) > 0 && Number(l.unitCost) >= 0 && l.unitCost !== ''), [lines]);
+  const subtotal = useMemo(
+    () => filledLines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitCost) || 0), 0),
+    [filledLines],
+  );
   const discountN = Math.max(0, Number(discount) || 0);
   const total = Math.max(0, subtotal - discountN);
 
-  function addLine() {
-    const q = Number(quantity); const c = Number(unitCost); const ppp = Math.max(1, Math.floor(Number(piecesPerPack) || 1));
-    if (!productName.trim() || !Number.isFinite(q) || q <= 0 || !Number.isFinite(c) || c < 0) {
-      setNotice('أكمل اسم الصنف والكمية والسعر.');
+  function updateDraft(key: string, patch: Partial<DraftLine>) {
+    setLines((old) => old.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  function addDraftRow() {
+    setLines((old) => [...old, emptyDraftLine()]);
+  }
+
+  function removeDraftRow(key: string) {
+    setLines((old) => (old.length <= 1 ? [emptyDraftLine()] : old.filter((l) => l.key !== key)));
+  }
+
+  function clearDraft() {
+    setLines([emptyDraftLine(), emptyDraftLine(), emptyDraftLine()]);
+    setInvoiceNo('');
+    setPaid('0');
+    setDiscount('0');
+    setNotes('');
+    setNotice('');
+  }
+
+  function nextPurchaseInvoiceNo(): string {
+    let max = 0;
+    for (const inv of invoices) {
+      const m = String(inv.invoiceNumber || '').match(/(\d+)\s*$/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > max) max = n;
+      }
+    }
+    return String(max + 1);
+  }
+
+  function piecePrice(l: DraftLine): number | null {
+    const cost = Number(l.unitCost);
+    if (!Number.isFinite(cost) || l.unitCost === '') return null;
+    if (l.unit === 'PACK') {
+      const ppp = Math.max(1, Math.floor(Number(l.piecesPerPack) || 1));
+      return cost / ppp;
+    }
+    return cost;
+  }
+
+  function printDraftInvoice() {
+    const items = filledLines;
+    if (!supplierName.trim() && items.length === 0) {
+      setNotice('أدخل بيانات للطباعة.');
       return;
     }
-    setLines((old) => [...old, { productName: productName.trim(), unit, quantity: q, unitCost: c, piecesPerPack: unit === 'PACK' ? ppp : 1 }]);
-    setProductName(''); setQuantity('1'); setUnitCost(''); setPiecesPerPack('1'); setNotice('');
+    const draft: Invoice = {
+      id: 'draft',
+      invoiceNumber: invoiceNo.trim() || 'مسودة',
+      invoiceDate: date,
+      supplierId: '',
+      supplier: { id: '', name: supplierName.trim() || '—' },
+      items: items.map((l, i) => ({
+        id: String(i),
+        productId: '',
+        productName: l.productName.trim(),
+        unit: l.unit,
+        quantity: Number(l.quantity) || 0,
+        unitCost: Number(l.unitCost) || 0,
+        piecesPerPack: l.unit === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
+        lineTotal: (Number(l.quantity) || 0) * (Number(l.unitCost) || 0),
+        returnedQuantity: 0,
+      })),
+      subtotal,
+      discount: discountN,
+      total,
+      paidAmount: Math.min(total, Math.max(0, Number(paid) || 0)),
+    };
+    printInvoice(draft);
   }
 
   async function saveInvoice(andPrint = false) {
-    if (!supplierName.trim() || !invoiceNo.trim() || lines.length === 0) {
-      setNotice('أدخل المورد ورقم الفاتورة وصنفًا واحدًا على الأقل.');
+    if (!supplierName.trim()) {
+      setNotice('أدخل اسم الشركة / المورد.');
       return;
     }
+    if (filledLines.length === 0) {
+      setNotice('أضف صنفًا واحدًا على الأقل (اسم + كمية + سعر).');
+      return;
+    }
+    const invNo = invoiceNo.trim() || nextPurchaseInvoiceNo();
     const paidN = Math.min(total, Math.max(0, Number(paid) || 0));
     try {
       const supplier = await apiRequest<Supplier>('/suppliers', {
@@ -108,24 +196,25 @@ export function Purchases() {
         method: 'POST',
         body: JSON.stringify({
           supplierId: supplier.id,
-          invoiceNumber: invoiceNo.trim(),
+          invoiceNumber: invNo,
           invoiceDate: date,
           discount: discountN,
           paidAmount: paidN,
           notes: notes.trim() || undefined,
-          items: lines.map((l) => ({
-            productName: l.productName,
+          items: filledLines.map((l) => ({
+            productName: l.productName.trim(),
+            barcode: l.barcode.trim() || undefined,
             unit: l.unit,
-            quantity: l.quantity,
-            unitCost: l.unitCost,
-            piecesPerPack: l.piecesPerPack,
+            quantity: Number(l.quantity),
+            unitCost: Number(l.unitCost),
+            piecesPerPack: l.unit === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
           })),
         }),
       });
-      setNotice('تم حفظ فاتورة الوارد على الخادم.');
-      setLines([]); setInvoiceNo(''); setDiscount('0'); setPaid('0'); setNotes('');
+      setNotice(`تم حفظ فاتورة الوارد ${created.invoiceNumber}.`);
+      clearDraft();
+      setSupplierName(supplierName);
       await refresh();
-      // optional: print right after save
       if (andPrint && created?.id) printInvoice(created);
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'تعذر حفظ الفاتورة.');
@@ -325,37 +414,142 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
       {loading && <div className="empty-state">جارٍ التحميل...</div>}
 
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>فاتورة وارد جديدة</h2><p>التكلفة تُحفظ لكل قطعة تلقائيًا حتى عند الشراء بالعلبة.</p></div></div>
-        <div className="purchase-form-grid">
-          <label>المورد<input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} list="supplier-list" placeholder="اسم المورد" /></label>
+        <div className="panel-heading">
+          <div>
+            <h2>فاتورة وارد</h2>
+            <p>سجّل الشركة والتاريخ والأصناف — التكلفة تُحوَّل لسعر القطعة تلقائيًا عند الشراء بالعلبة.</p>
+          </div>
+        </div>
+
+        <div className="sale-meta-row" style={{ gridTemplateColumns: '1.3fr 0.9fr 0.9fr 0.9fr 0.8fr' }}>
+          <label>اسم الشركة / المورد
+            <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} list="supplier-list" placeholder="اكتب أو اختر" />
+          </label>
           <datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist>
-          <label>رقم الفاتورة<input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} /></label>
-          <label>التاريخ<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label>التاريخ
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label>رقم الفاتورة (اختياري)
+            <input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="تلقائي إن تُرك فارغًا" />
+          </label>
+          <label>نوع الفاتورة
+            <input value="فاتورة وارد" readOnly />
+          </label>
+          <label>المدفوع للمورد الآن
+            <input type="number" min="0" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
+          </label>
         </div>
-        <div className="purchase-form-grid">
-          <label>الصنف<input value={productName} onChange={(e) => setProductName(e.target.value)} /></label>
-          <label>الوحدة<select value={unit} onChange={(e) => setUnit(e.target.value as 'PIECE' | 'PACK')}><option value="PIECE">قطعة</option><option value="PACK">علبة</option></select></label>
-          <label>الكمية<input type="number" min="0.001" step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
-          <label>سعر الوحدة<input type="number" min="0" step="0.01" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} /></label>
-          {unit === 'PACK' && <label>قطع/علبة<input type="number" min="1" step="1" value={piecesPerPack} onChange={(e) => setPiecesPerPack(e.target.value)} /></label>}
-          <button className="secondary-btn" type="button" onClick={addLine}>إضافة صنف</button>
+
+        <div className="sale-lines-wrap" style={{ marginTop: 12 }}>
+          <table className="sale-lines-table">
+            <thead>
+              <tr>
+                <th>باركود</th>
+                <th>الصنف</th>
+                <th>الوحدة</th>
+                <th>الكمية</th>
+                <th>قطع في الوحدة</th>
+                <th>سعر الوحدة</th>
+                <th>سعر القطعة</th>
+                <th>الإجمالي</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((l) => {
+                const q = Number(l.quantity) || 0;
+                const c = Number(l.unitCost) || 0;
+                const lineTotal = q * c;
+                const pp = piecePrice(l);
+                return (
+                  <tr key={l.key}>
+                    <td>
+                      <input
+                        placeholder="باركود"
+                        value={l.barcode}
+                        onChange={(e) => updateDraft(l.key, { barcode: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        placeholder="اسم الصنف"
+                        value={l.productName}
+                        onChange={(e) => updateDraft(l.key, { productName: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        value={l.unit}
+                        onChange={(e) => updateDraft(l.key, { unit: e.target.value as 'PIECE' | 'PACK' })}
+                      >
+                        <option value="PIECE">قطعة</option>
+                        <option value="PACK">علبة</option>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={l.quantity}
+                        onChange={(e) => updateDraft(l.key, { quantity: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={l.piecesPerPack}
+                        disabled={l.unit !== 'PACK'}
+                        onChange={(e) => updateDraft(l.key, { piecesPerPack: e.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={l.unitCost}
+                        placeholder="0"
+                        onChange={(e) => updateDraft(l.key, { unitCost: e.target.value })}
+                      />
+                    </td>
+                    <td>{pp === null ? '—' : pp.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}</td>
+                    <td>{lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}</td>
+                    <td>
+                      <button className="danger-outline-btn" type="button" onClick={() => removeDraftRow(l.key)}>حذف</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        {lines.length > 0 && (
-          <div className="table-wrap"><table><thead><tr><th>الصنف</th><th>الوحدة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th></th></tr></thead>
-            <tbody>{lines.map((l, i) => (
-              <tr key={i}><td>{l.productName}</td><td>{l.unit === 'PACK' ? 'علبة' : 'قطعة'}</td><td>{l.quantity}</td><td>{money(l.unitCost)}</td><td>{money(l.quantity * l.unitCost)}</td>
-                <td><button className="icon-btn" type="button" onClick={() => setLines((old) => old.filter((_, idx) => idx !== i))}>×</button></td></tr>
-            ))}</tbody></table></div>
-        )}
-        <div className="purchase-form-grid">
-          <label>الخصم<input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} /></label>
-          <label>المدفوع<input type="number" min="0" value={paid} onChange={(e) => setPaid(e.target.value)} /></label>
-          <label>ملاحظات<input value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
-          <div><strong>الإجمالي: {money(total)}</strong></div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>حفظ الفاتورة على الخادم</button>
-          <button className="secondary-btn" type="button" onClick={() => void saveInvoice(true)}>حفظ وطباعة</button>
+
+        <div style={{ marginTop: 12 }}>
+          <button className="add-line-btn" type="button" onClick={addDraftRow}>+ إضافة صنف</button>
         </div>
+
+        <div className="sale-pay-row">
+          <div className="sale-pay-fields">
+            <label>خصم (ج)
+              <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            </label>
+            <label>ملاحظات
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </label>
+          </div>
+          <div className="sale-summary">
+            <div>إجمالي الفاتورة: <strong>{money(total)}</strong></div>
+          </div>
+        </div>
+
+        <div className="sale-actions">
+          <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>حفظ الفاتورة</button>
+          <button className="primary-btn" type="button" onClick={() => void saveInvoice(true)}>حفظ وطباعة</button>
+          <button className="secondary-btn" type="button" onClick={printDraftInvoice}>طباعة (حتى قبل الحفظ)</button>
+          <button className="secondary-btn" type="button" onClick={clearDraft}>فاتورة فارغة</button>
         </div>
       </section>
 
