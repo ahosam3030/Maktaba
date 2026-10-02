@@ -145,19 +145,22 @@ export function Sales() {
     overflow: hidden;
   }
   .wm-cell {
-    transform: rotate(-28deg);
-    font-size: 13px;
-    font-weight: 800;
-    color: rgba(26, 79, 156, 0.08);
+    transform: rotate(-30deg);
+    font-size: 16px;
+    font-weight: 900;
+    color: rgba(13, 58, 122, 0.18);
     text-align: center;
-    line-height: 1.35;
+    line-height: 1.4;
     user-select: none;
     white-space: nowrap;
   }
   .wm-cell small {
-    font-size: 10px;
-    font-weight: 700;
-    color: rgba(26, 79, 156, 0.1);
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 800;
+    color: rgba(13, 58, 122, 0.20);
+    letter-spacing: 0.4px;
   }
   .content { position: relative; z-index: 1; }
 
