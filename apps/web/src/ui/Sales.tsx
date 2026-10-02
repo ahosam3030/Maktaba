@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest } from '../data/api';
+import { apiRequest, getStoredOrganization } from '../data/api';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
 type CartLine = { productId: string; quantity: string; unitPrice: string };
@@ -57,43 +57,331 @@ export function Sales() {
   function printSale(sale: Sale) {
     const w = window.open('', '_blank');
     if (!w) { setNotice('اسمح بالنوافذ المنبثقة لطباعة الفاتورة.'); return; }
-    const rows = (sale.items || []).map((l) =>
-      `<tr><td>${escapeHtml(l.productName)}</td><td>${Number(l.quantity)}</td><td>${money(Number(l.unitPrice))}</td><td>${money(Number(l.lineTotal))}</td></tr>`
-    ).join('');
+    const org = getStoredOrganization();
+    const centerName = org?.name || 'مركز المهندس للخدمات العلمية والطباعة وأدوات مكتبية';
+    const phone = '01127897245';
+    const address = 'المركز المركزي عدوة — أمام ديعسوب شارع / مستشفى شرق الجديدة — الإدارة التعليمية';
+    const items = sale.items || [];
+    const maxRows = Math.max(10, items.length);
+    const rows = Array.from({ length: maxRows }, (_, i) => {
+      const l = items[i];
+      if (!l) {
+        return `<tr><td class="num">${i + 1}</td><td></td><td></td><td></td><td></td></tr>`;
+      }
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td>${escapeHtml(l.productName)}</td>
+        <td>${qty(Number(l.quantity))}</td>
+        <td>${Number(l.unitPrice).toFixed(2)}</td>
+        <td>${Number(l.lineTotal).toFixed(2)}</td>
+      </tr>`;
+    }).join('');
     const paid = Number(sale.paidAmount);
     const tot = Number(sale.total);
-    w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>فاتورة ${escapeHtml(sale.invoiceNumber)}</title>
+    const sub = Number(sale.subtotal);
+    const disc = Number(sale.discount);
+    const dateStr = new Date(sale.saleDate).toLocaleDateString('ar-EG');
+    const invNo = escapeHtml(sale.invoiceNumber);
+    const customer = escapeHtml(sale.customerName || 'عميل نقدي');
+    const wmText = escapeHtml(centerName);
+
+    w.document.write(`<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>فاتورة مبيعات ${invNo}</title>
 <style>
-body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111;max-width:800px;margin:0 auto}
-h1{text-align:center;font-size:22px;margin:0 0 8px}
-.sub{text-align:center;color:#444;margin-bottom:16px}
-.line{border-top:1px dashed #888;margin:14px 0}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{border:1px solid #bbb;padding:8px;text-align:right;font-size:13px}
-th{background:#eee}
-.totals{margin-top:16px;width:280px;margin-right:auto}
-.totals div{display:flex;justify-content:space-between;padding:4px 0}
-.grand{font-weight:bold;font-size:16px}
-@media print{body{padding:8px}}
-</style></head><body>
-<h1>فاتورة مبيعات</h1>
-<div class="sub">رقم الفاتورة: ${escapeHtml(sale.invoiceNumber)}</div>
-<p>التاريخ: ${escapeHtml(new Date(sale.saleDate).toLocaleString('ar-EG'))}</p>
-<p>العميل: ${escapeHtml(sale.customerName || 'عميل نقدي')}</p>
-<div class="line"></div>
-<table><thead><tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
-<tbody>${rows}</tbody></table>
-<div class="totals">
-<div><span>قبل الخصم</span><b>${money(Number(sale.subtotal))}</b></div>
-<div><span>الخصم</span><b>${money(Number(sale.discount))}</b></div>
-<div class="grand"><span>الإجمالي</span><b>${money(tot)}</b></div>
-<div><span>المدفوع</span><b>${money(paid)}</b></div>
-<div><span>المتبقي</span><b>${money(Math.max(0, tot - paid))}</b></div>
-</div>
-<div class="line"></div>
-<p style="text-align:center">شكرًا لتعاملكم</p>
-<script>window.onload=()=>{window.print()}</script>
-</body></html>`);
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Tahoma, 'Segoe UI', Arial, sans-serif;
+    margin: 0; padding: 0; color: #0f2744;
+    background: #fff;
+  }
+  .sheet {
+    position: relative;
+    width: 100%;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 12px 16px 20px;
+    overflow: hidden;
+    min-height: 270mm;
+  }
+  /* علامة مائية — يصعب تزوير الفاتورة بدونها */
+  .watermark {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .watermark span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-32deg);
+    font-size: 42px;
+    font-weight: 800;
+    color: rgba(15, 55, 120, 0.07);
+    white-space: nowrap;
+    letter-spacing: 2px;
+    user-select: none;
+  }
+  .watermark .wm-code {
+    top: 62%;
+    font-size: 22px;
+    color: rgba(15, 55, 120, 0.09);
+    font-weight: 700;
+  }
+  .content { position: relative; z-index: 1; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #1a4f9c;
+  }
+  .brand {
+    text-align: center;
+    flex: 1;
+  }
+  .brand .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #f5b942, #e89b1a);
+    color: #1a2a4a;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 4px 18px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 26px;
+    color: #1a4f9c;
+    font-weight: 900;
+    line-height: 1.3;
+  }
+  .brand .sub {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #2a5a9e;
+    font-weight: 700;
+  }
+  .logo-box {
+    width: 72px; height: 72px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #1a4f9c, #0d2f66);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 900;
+    box-shadow: 0 4px 12px rgba(26,79,156,.25);
+  }
+
+  .contact-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(90deg, #0d2f66, #1a4f9c, #0d2f66);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 12px 0 14px;
+    font-size: 12px;
+  }
+  .contact-bar span { white-space: nowrap; }
+
+  .title-wrap { text-align: center; margin: 8px 0 14px; }
+  .title-wrap .title {
+    display: inline-block;
+    background: linear-gradient(135deg, #f5b942, #e89b1a);
+    color: #1a2a4a;
+    font-size: 18px;
+    font-weight: 900;
+    padding: 6px 36px;
+    border-radius: 24px;
+    border: 2px solid #c98912;
+  }
+
+  .meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 20px;
+    border: 1px solid #c5d4ea;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: #f7faff;
+    font-size: 13px;
+  }
+  .meta div { display: flex; gap: 6px; }
+  .meta strong { color: #1a4f9c; min-width: 90px; }
+
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+  table.items th, table.items td {
+    border: 1px solid #9eb6d8;
+    padding: 7px 6px;
+    text-align: center;
+  }
+  table.items th {
+    color: #fff;
+    font-weight: 800;
+  }
+  table.items th.col-n { background: #e89b1a; width: 36px; }
+  table.items th.col-name { background: #1a4f9c; text-align: right; }
+  table.items th.col-qty { background: #1e9e6a; width: 70px; }
+  table.items th.col-price { background: #6b4fd6; width: 90px; }
+  table.items th.col-total { background: #d6455d; width: 95px; }
+  table.items td.num { background: #fff7e8; font-weight: 700; color: #c98912; }
+  table.items td:nth-child(2) { text-align: right; }
+  table.items tbody tr { height: 28px; }
+
+  .bottom {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .notes, .totals {
+    border: 1px solid #9eb6d8;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f7faff;
+    min-height: 90px;
+  }
+  .notes h3 {
+    margin: 0 0 8px;
+    display: inline-block;
+    background: #e89b1a;
+    color: #1a2a4a;
+    font-size: 12px;
+    padding: 3px 12px;
+    border-radius: 12px;
+  }
+  .notes .lines { border-bottom: 1px dotted #9eb6d8; height: 22px; margin: 4px 0; }
+  .totals table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .totals td { padding: 6px 8px; border-bottom: 1px solid #d0dff2; }
+  .totals td:last-child { text-align: left; font-weight: 700; direction: ltr; }
+  .totals tr.grand td {
+    background: #e8f0ff;
+    font-weight: 900;
+    color: #0d2f66;
+    font-size: 14px;
+    border-bottom: none;
+  }
+
+  .thanks {
+    text-align: center;
+    margin-top: 18px;
+    font-weight: 800;
+    color: #1a4f9c;
+    font-size: 14px;
+  }
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 8px;
+    border-top: 2px solid #1a4f9c;
+    font-size: 11px;
+    color: #355a8c;
+  }
+  .auth-strip {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 10px;
+    color: #6a7f9c;
+    letter-spacing: 0.5px;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { max-width: none; padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="watermark" aria-hidden="true">
+      <span>${wmText}</span>
+      <span class="wm-code">${invNo}</span>
+    </div>
+    <div class="content">
+      <div class="header">
+        <div class="logo-box">م</div>
+        <div class="brand">
+          <div class="badge">مركز</div>
+          <h1>${escapeHtml(centerName.split(' لل')[0] || 'المهندس')}</h1>
+          <p class="sub">للخدمات العلمية والطباعة وأدوات مكتبية</p>
+        </div>
+        <div class="logo-box" style="background:linear-gradient(145deg,#e89b1a,#c98912)">📚</div>
+      </div>
+
+      <div class="contact-bar">
+        <span>📞 تليفون: ${escapeHtml(phone)}</span>
+        <span>📍 ${escapeHtml(address)}</span>
+      </div>
+
+      <div class="title-wrap"><span class="title">فاتورة مبيعات</span></div>
+
+      <div class="meta">
+        <div><strong>رقم الفاتورة:</strong> <span dir="ltr">${invNo}</span></div>
+        <div><strong>التاريخ:</strong> ${escapeHtml(dateStr)}</div>
+        <div style="grid-column:1/-1"><strong>اسم العميل:</strong> ${customer}</div>
+      </div>
+
+      <table class="items">
+        <thead>
+          <tr>
+            <th class="col-n">م</th>
+            <th class="col-name">اسم الصنف</th>
+            <th class="col-qty">الكمية</th>
+            <th class="col-price">سعر الوحدة</th>
+            <th class="col-total">الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <div class="bottom">
+        <div class="notes">
+          <h3>ملاحظات</h3>
+          <div class="lines"></div>
+          <div class="lines"></div>
+          <div class="lines"></div>
+        </div>
+        <div class="totals">
+          <table>
+            <tr><td>إجمالي المبلغ</td><td>${sub.toFixed(2)}</td></tr>
+            <tr><td>خصم</td><td>${disc.toFixed(2)}</td></tr>
+            <tr class="grand"><td>صافي المبلغ</td><td>${tot.toFixed(2)}</td></tr>
+            <tr><td>المدفوع</td><td>${paid.toFixed(2)}</td></tr>
+            <tr><td>المتبقي</td><td>${Math.max(0, tot - paid).toFixed(2)}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <p class="thanks">شكرًا لثقتكم بنا</p>
+      <div class="footer">
+        <span>${escapeHtml(centerName)}</span>
+        <span dir="ltr">${escapeHtml(phone)}</span>
+      </div>
+      <div class="auth-strip">وثيقة صادرة من النظام — ${invNo} — غير صالحة بدون العلامة المائية ورقم الفاتورة</div>
+    </div>
+  </div>
+  <script>window.onload=function(){window.print()}</script>
+</body>
+</html>`);
     w.document.close();
   }
 
