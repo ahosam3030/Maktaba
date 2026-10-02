@@ -81,7 +81,7 @@ export function Sales() {
     setNotice('');
   }
 
-  /** مطابقة بالباركود أولًا ثم بالاسم */
+  /** مطابقة بالباركود أولًا ثم بالاسم (يفضّل صنف له رصيد) */
   function findProduct(raw: string): Product | undefined {
     const q = raw.trim().toLowerCase();
     if (!q) return undefined;
@@ -89,11 +89,16 @@ export function Sales() {
     if (byBarcode) return byBarcode;
     const exactName = products.find((p) => p.name.trim().toLowerCase() === q);
     if (exactName) return exactName;
+    const pick = (list: Product[]) => {
+      if (list.length === 0) return undefined;
+      const withStock = list.filter((p) => (Number(p.stock) || 0) > 0);
+      if (withStock.length >= 1) return withStock[0];
+      return list[0];
+    };
     const starts = products.filter((p) => p.name.toLowerCase().startsWith(q));
-    if (starts.length === 1) return starts[0];
+    if (starts.length > 0) return pick(starts);
     const contains = products.filter((p) => p.name.toLowerCase().includes(q) || (p.barcode || '').toLowerCase().includes(q));
-    if (contains.length === 1) return contains[0];
-    return undefined;
+    return pick(contains);
   }
 
   function applyProductToLine(line: CartLine, p: Product | undefined, query: string): CartLine {
@@ -102,10 +107,10 @@ export function Sales() {
     }
     const stock = Number(p.stock) || 0;
     if (stock <= 0) {
-      setNotice(`«${p.name}» رصيده صفر. سجّل وارد أو تسوية مخزون أولًا.`);
-      return { ...line, productId: '', query };
+      setNotice(`«${p.name}» موجود لكن رصيده صفر. سجّل وارد من المشتريات قبل البيع.`);
+    } else {
+      setNotice(`تم ربط الصنف: ${p.name} (متاح ${stock})`);
     }
-    setNotice('');
     return {
       ...line,
       productId: p.id,
@@ -119,7 +124,6 @@ export function Sales() {
   function onProductQueryChange(key: string, value: string) {
     setCart((old) => old.map((line) => {
       if (line.key !== key) return line;
-      // أثناء الكتابة نحدّث النص؛ المطابقة عند Enter أو blur
       return { ...line, query: value, productId: '' };
     }));
   }
