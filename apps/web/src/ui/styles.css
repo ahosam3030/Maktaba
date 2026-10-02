@@ -17,3 +17,33 @@
 
 /* Cashbook and accounting */
 .accounting-filters{margin-bottom:14px}.accounting-filters label{font-size:12px}.accounting-filters input{width:100%;min-width:0;border:1px solid #dbe5e5;border-radius:7px;padding:10px;background:#fbfdfd;font:inherit;font-size:12px;color:#263f45}.accounting-filters input:focus{outline:2px solid #d5f0e8;border-color:#159b80}
+
+/* Sales invoice line entry */
+.danger-outline-btn{
+  border:1px solid #e8a0a0;
+  background:#fff;
+  color:#c0392b;
+  border-radius:8px;
+  padding:7px 14px;
+  font:inherit;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.danger-outline-btn:hover{background:#fff5f5}
+.add-line-btn{
+  border:1px solid #0f766e;
+  background:#fff;
+  color:#0f766e;
+  border-radius:8px;
+  padding:9px 16px;
+  font:inherit;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.add-line-btn:hover{background:#e8f4f1}
+.sale-lines-table th{text-align:center}
+.sale-lines-table td{vertical-align:middle}
+.sale-lines-table select,
+.sale-lines-table input{background:#f7f9f9}

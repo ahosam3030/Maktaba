@@ -3,7 +3,8 @@ import { apiRequest } from '../data/api';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
-type CartLine = { key: string; productId: string; quantity: string; unitPrice: string };
+type CartLine = { key: string; productId: string; unit: string; quantity: string; unitPrice: string };
+const SALE_UNITS = ['قطعة', 'ورقة', 'نسخة', 'علبة', 'دستة', 'كرتونة', 'رزمة', 'خدمة'] as const;
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
@@ -61,7 +62,7 @@ export function Sales() {
   }
 
   function addEmptyRow() {
-    setCart((old) => [...old, { key: newLineKey(), productId: '', quantity: '1', unitPrice: '0' }]);
+    setCart((old) => [...old, { key: newLineKey(), productId: '', unit: 'قطعة', quantity: '1', unitPrice: '' }]);
     setNotice('');
   }
 
@@ -69,7 +70,7 @@ export function Sales() {
     const p = products.find((x) => x.id === productId);
     setCart((old) => old.map((line) => {
       if (line.key !== key) return line;
-      if (!p) return { ...line, productId: '', unitPrice: '0' };
+      if (!p) return { ...line, productId: '', unitPrice: '' };
       const stock = Number(p.stock) || 0;
       if (stock <= 0) {
         setNotice(`«${p.name}» رصيده صفر. سجّل وارد أو تسوية مخزون أولًا.`);
@@ -79,8 +80,9 @@ export function Sales() {
       return {
         ...line,
         productId: p.id,
-        unitPrice: String(Number(p.salePrice) || 0),
+        unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
         quantity: line.quantity && Number(line.quantity) > 0 ? line.quantity : '1',
+        unit: line.unit || 'قطعة',
       };
     }));
   }
@@ -626,49 +628,55 @@ export function Sales() {
         </div>
 
         <div className="table-wrap" style={{ marginTop: 12 }}>
-          <table className="purchase-table">
+          <table className="purchase-table sale-lines-table">
             <thead>
               <tr>
-                <th style={{ minWidth: 200 }}>الصنف / الخدمة</th>
-                <th>المتاح</th>
-                <th>الكمية</th>
-                <th>السعر</th>
-                <th>الإجمالي</th>
-                <th></th>
+                <th style={{ minWidth: 180 }}>الصنف / الخدمة</th>
+                <th style={{ width: 110 }}>الوحدة</th>
+                <th style={{ width: 90 }}>الكمية</th>
+                <th style={{ width: 100 }}>السعر</th>
+                <th style={{ width: 100 }}>الإجمالي</th>
+                <th style={{ width: 70 }}></th>
               </tr>
             </thead>
             <tbody>
-              {cart.map((line) => {
-                const p = products.find((item) => item.id === line.productId);
-                const stock = Number(p?.stock) || 0;
+              {(cart.length ? cart : []).map((line) => {
                 const lineTotal = Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
                 return (
                   <tr key={line.key}>
                     <td>
                       <select
-                        aria-label="اختر الصنف"
+                        aria-label="الصنف أو الخدمة"
                         value={line.productId}
                         onChange={(e) => setLineProduct(line.key, e.target.value)}
-                        style={{ width: '100%', minWidth: 160 }}
                       >
-                        <option value="">— اختر صنفًا —</option>
+                        <option value="">اسم الصنف أو الخدمة</option>
                         {products.map((prod) => (
                           <option key={prod.id} value={prod.id} disabled={(Number(prod.stock) || 0) <= 0}>
-                            {prod.name} {(Number(prod.stock) || 0) <= 0 ? '(لا رصيد)' : `(متاح ${qty(Number(prod.stock) || 0)})`}
+                            {prod.name}{(Number(prod.stock) || 0) <= 0 ? ' — لا رصيد' : ''}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td>{line.productId ? qty(stock) : '—'}</td>
+                    <td>
+                      <select
+                        aria-label="الوحدة"
+                        value={line.unit || 'قطعة'}
+                        onChange={(e) => updateLine(line.key, { unit: e.target.value })}
+                      >
+                        {SALE_UNITS.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </td>
                     <td>
                       <input
                         aria-label="الكمية"
                         type="number"
-                        min="0.001"
-                        step="0.001"
+                        min="0"
+                        step="1"
                         value={line.quantity}
                         onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                        style={{ width: 80 }}
                       />
                     </td>
                     <td>
@@ -679,12 +687,14 @@ export function Sales() {
                         step="0.01"
                         value={line.unitPrice}
                         onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
-                        style={{ width: 90 }}
+                        placeholder="0"
                       />
                     </td>
-                    <td>{money(lineTotal)}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                      {lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}
+                    </td>
                     <td>
-                      <button className="secondary-btn small" type="button" onClick={() => removeLine(line.key)}>حذف</button>
+                      <button className="danger-outline-btn" type="button" onClick={() => removeLine(line.key)}>حذف</button>
                     </td>
                   </tr>
                 );
@@ -692,24 +702,24 @@ export function Sales() {
             </tbody>
           </table>
           {cart.length === 0 && (
-            <div className="empty-state">اضغط «+ إضافة صنف» لبدء الفاتورة.</div>
+            <div className="empty-state">اضغط «+ إضافة صنف» لإضافة صف في الفاتورة.</div>
           )}
           {products.length === 0 && (
             <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
           )}
         </div>
 
-        <div style={{ marginTop: 10 }}>
-          <button className="secondary-btn" type="button" onClick={addEmptyRow}>+ إضافة صنف</button>
+        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-start' }}>
+          <button className="add-line-btn" type="button" onClick={addEmptyRow}>+ إضافة صنف</button>
         </div>
 
         <div className="invoice-bottom" style={{ marginTop: 16 }}>
-          <div className="purchase-form-grid sale-payment-fields" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div className="purchase-form-grid sale-payment-fields" style={{ gridTemplateColumns: '1fr 1fr', maxWidth: 420 }}>
             <label>خصم (ج)
               <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </label>
             <label>المدفوع (ج)
-              <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder={String(total)} />
+              <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0" />
             </label>
           </div>
           <div className="totals-box">
