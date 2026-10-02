@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest, getStoredOrganization } from '../data/api';
+import { apiRequest } from '../data/api';
+import { loadInvoiceSettings } from '../data/invoiceSettings';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
 type CartLine = { productId: string; quantity: string; unitPrice: string };
@@ -75,10 +76,15 @@ export function Sales() {
   function printSale(sale: Sale) {
     const w = window.open('', '_blank');
     if (!w) { setNotice('اسمح بالنوافذ المنبثقة لطباعة الفاتورة.'); return; }
-    const org = getStoredOrganization();
-    const centerName = org?.name || 'مركز المهندس للخدمات العلمية والطباعة';
-    const phone = '01127897245';
-    const address = 'شارع بورسعيد أمام الإدارة التعليمية الجديدة — شرق مستشفى العدوة المركزي';
+    const cfg = loadInvoiceSettings();
+    const centerName = cfg.watermarkText || cfg.brandTitle;
+    const phone = cfg.phone;
+    const address = cfg.address;
+    const brandTitle = cfg.brandTitle;
+    const brandSubtitle = cfg.brandSubtitle;
+    const invoiceTitle = cfg.invoiceTitle;
+    const footerText = cfg.footerText;
+    const serviceTagsHtml = cfg.serviceTags.map((t) => `<span>${escapeHtml(t)}</span>`).join('');
     const items = sale.items || [];
     const maxRows = Math.max(10, items.length);
     const rows = Array.from({ length: maxRows }, (_, i) => {
@@ -419,24 +425,20 @@ export function Sales() {
             <div class="row">💻✏️📐</div>
           </div>
           <div class="hero-brand">
-            <h1>مركز المهندس</h1>
-            <p class="sub">للخدمات العلمية والطباعة والأدوات المكتبية</p>
+            <h1>${escapeHtml(brandTitle)}</h1>
+            <p class="sub">${escapeHtml(brandSubtitle)}</p>
             <p class="addr">${escapeHtml(address)}</p>
             <p class="phone">تليفون / واتساب: <span dir="ltr">${escapeHtml(phone)}</span></p>
           </div>
           <div class="hero-side">
             <div class="hero-logo">🎓</div>
-            <div class="svc-tags">
-              <span>خدمات علمية</span>
-              <span>تصوير وطباعة</span>
-              <span>أدوات مكتبية</span>
-            </div>
+            <div class="svc-tags">${serviceTagsHtml}</div>
           </div>
         </div>
       </div>
 
       <div class="body-pad">
-        <div class="title-wrap"><span class="title">فاتورة مبيعات</span></div>
+        <div class="title-wrap"><span class="title">${escapeHtml(invoiceTitle)}</span></div>
 
         <div class="meta">
           <div class="field"><label>اسم العميل</label><span>${customer}</span></div>
@@ -476,11 +478,11 @@ export function Sales() {
           </div>
         </div>
 
-        <p class="thanks">— شكرًا لثقتكم بنا —</p>
+        <p class="thanks">— ${escapeHtml(footerText)} —</p>
       </div>
 
       <div class="footer">
-        <span>${escapeHtml(centerName)}</span>
+        <span>${escapeHtml(brandTitle)}</span>
         <span dir="ltr">${escapeHtml(phone)}</span>
       </div>
       <div class="auth-strip">وثيقة إلكترونية — ${invNo} — العلامة المائية المكررة جزء من الحماية ضد التزوير</div>

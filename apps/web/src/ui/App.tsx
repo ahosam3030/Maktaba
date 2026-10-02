@@ -10,6 +10,7 @@ import { Sales } from './Sales';
 import { Printing } from './Printing';
 import { Accounting } from './Accounting';
 import { AdminUsers } from './AdminUsers';
+import { Settings } from './Settings';
 
 type ConnectionState = 'checking' | 'online' | 'offline';
 type AuthMode = 'login' | 'register';
@@ -31,7 +32,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'admin'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'admin' | 'settings'>('dashboard');
 
   const isLoggedIn = Boolean(getToken() && sessionUser);
 
@@ -165,6 +166,9 @@ export function App() {
           {isAdminUser(sessionUser) && (
             <a className={activeSection === 'admin' ? 'active' : ''} href="#admin" onClick={() => setActiveSection('admin')}>المستخدمون</a>
           )}
+          {isLoggedIn && (
+            <a className={activeSection === 'settings' ? 'active' : ''} href="#settings" onClick={() => setActiveSection('settings')}>إعدادات الفاتورة</a>
+          )}
         </nav>
         <div className="sidebar-footer">
           {isLoggedIn && sessionUser ? (
@@ -200,6 +204,7 @@ export function App() {
           : activeSection === 'printing' && hasPermission(sessionUser, 'printing') ? <Printing />
           : activeSection === 'accounting' && hasPermission(sessionUser, 'accounting') ? <Accounting />
           : activeSection === 'admin' && isAdminUser(sessionUser) ? <AdminUsers />
+          : activeSection === 'settings' && isLoggedIn ? <Settings />
           : <>
         <section className="welcome-card">
           <div>
