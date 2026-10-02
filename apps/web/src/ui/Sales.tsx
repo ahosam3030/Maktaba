@@ -3,7 +3,7 @@ import { apiRequest } from '../data/api';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
-type CartLine = { productId: string; quantity: string; unitPrice: string };
+type CartLine = { key: string; productId: string; quantity: string; unitPrice: string };
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
@@ -21,10 +21,10 @@ export function Sales() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState(`S-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-5)}`);
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState('0');
   const [paidAmount, setPaidAmount] = useState('');
-  const [search, setSearch] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -47,30 +47,60 @@ export function Sales() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const filteredProducts = products.filter((p) => `${p.name} ${p.barcode || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
-  const subtotal = useMemo(() => cart.reduce((sum, line) => sum + Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0), 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((sum, line) => {
+    if (!line.productId) return sum;
+    return sum + Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
+  }, 0), [cart]);
   const discountValue = Math.max(0, Number(discount) || 0);
   const total = Math.max(0, subtotal - discountValue);
+  const paidN = paidAmount.trim() === '' ? total : Math.max(0, Number(paidAmount) || 0);
+  const remaining = Math.max(0, total - paidN);
 
-  function addProduct(product: Product) {
-    const stock = Number(product.stock) || 0;
-    if (stock <= 0) {
-      setNotice(`«${product.name}» رصيده صفر. سجّل فاتورة وارد من المشتريات أو تسوية مخزون أولًا.`);
-      return;
-    }
-    setCart((old) => {
-      const found = old.find((line) => line.productId === product.id);
-      if (found) {
-        const nextQty = Math.min(stock, (Number(found.quantity) || 0) + 1);
-        return old.map((line) => line.productId === product.id ? { ...line, quantity: String(nextQty) } : line);
+  function newLineKey() {
+    return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  function addEmptyRow() {
+    setCart((old) => [...old, { key: newLineKey(), productId: '', quantity: '1', unitPrice: '0' }]);
+    setNotice('');
+  }
+
+  function setLineProduct(key: string, productId: string) {
+    const p = products.find((x) => x.id === productId);
+    setCart((old) => old.map((line) => {
+      if (line.key !== key) return line;
+      if (!p) return { ...line, productId: '', unitPrice: '0' };
+      const stock = Number(p.stock) || 0;
+      if (stock <= 0) {
+        setNotice(`«${p.name}» رصيده صفر. سجّل وارد أو تسوية مخزون أولًا.`);
+        return line;
       }
-      return [...old, {
-        productId: product.id,
-        quantity: '1',
-        unitPrice: String(Number(product.salePrice) || 0),
-      }];
-    });
-    setNotice(`تمت إضافة «${product.name}» إلى الفاتورة.`);
+      setNotice('');
+      return {
+        ...line,
+        productId: p.id,
+        unitPrice: String(Number(p.salePrice) || 0),
+        quantity: line.quantity && Number(line.quantity) > 0 ? line.quantity : '1',
+      };
+    }));
+  }
+
+  function updateLine(key: string, patch: Partial<CartLine>) {
+    setCart((old) => old.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  }
+
+  function removeLine(key: string) {
+    setCart((old) => old.filter((line) => line.key !== key));
+  }
+
+  function resetForm() {
+    setCart([]);
+    setCustomerName('');
+    setDiscount('0');
+    setPaidAmount('');
+    setSaleDate(new Date().toISOString().slice(0, 10));
+    setInvoiceNumber(`S-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-5)}`);
+    setNotice('');
   }
 
   function printSale(sale: Sale) {
@@ -496,7 +526,18 @@ export function Sales() {
   }
 
   async function saveSale(andPrint = false) {
-    if (!invoiceNumber.trim() || cart.length === 0) { setNotice('أدخل رقم الفاتورة وأضف صنفًا واحدًا على الأقل.'); return; }
+    const lines = cart.filter((l) => l.productId && Number(l.quantity) > 0);
+    if (!invoiceNumber.trim() || lines.length === 0) {
+      setNotice('أدخل رقم الفاتورة وأضف صنفًا واحدًا على الأقل من القائمة.');
+      return;
+    }
+    for (const line of lines) {
+      const p = products.find((x) => x.id === line.productId);
+      const stock = Number(p?.stock) || 0;
+      const q = Number(line.quantity) || 0;
+      if (!p) { setNotice('صنف غير موجود في المخزون.'); return; }
+      if (q > stock) { setNotice(`الكمية المطلوبة من «${p.name}» أكبر من المتاح (${stock}).`); return; }
+    }
     if (discountValue > subtotal) { setNotice('الخصم لا يمكن أن يتجاوز إجمالي الفاتورة.'); return; }
     const paid = paidAmount.trim() === '' ? total : Number(paidAmount);
     if (!Number.isFinite(paid) || paid < 0 || paid > total) { setNotice('المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الفاتورة.'); return; }
@@ -506,19 +547,47 @@ export function Sales() {
         method: 'POST',
         body: JSON.stringify({
           invoiceNumber: invoiceNumber.trim(),
+          saleDate: saleDate || undefined,
           customerName: customerName.trim() || undefined,
           discount: discountValue,
           paidAmount: paid,
-          items: cart.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), unitPrice: Number(line.unitPrice) })),
+          items: lines.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), unitPrice: Number(line.unitPrice) })),
         }),
       });
       setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber} بنجاح.`);
-      setCart([]); setCustomerName(''); setDiscount('0'); setPaidAmount('');
-      setInvoiceNumber(`S-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-5)}`);
+      resetForm();
       await refresh();
       if (andPrint) printSale(sale);
     } catch (e) { setNotice(e instanceof Error ? e.message : 'تعذر حفظ فاتورة البيع.'); }
     finally { setSaving(false); }
+  }
+
+  function printDraft() {
+    const lines = cart.filter((l) => l.productId && Number(l.quantity) > 0);
+    if (lines.length === 0) { setNotice('أضف أصنافًا قبل الطباعة.'); return; }
+    const draft: Sale = {
+      id: 'draft',
+      invoiceNumber: invoiceNumber.trim() || 'مسودة',
+      saleDate: saleDate || new Date().toISOString(),
+      customerName: customerName.trim() || 'عميل نقدي',
+      subtotal,
+      discount: discountValue,
+      total,
+      paidAmount: paidN,
+      items: lines.map((line, i) => {
+        const p = products.find((x) => x.id === line.productId);
+        const q = Number(line.quantity) || 0;
+        const price = Number(line.unitPrice) || 0;
+        return {
+          id: String(i),
+          productName: p?.name || 'صنف',
+          quantity: q,
+          unitPrice: price,
+          lineTotal: q * price,
+        };
+      }),
+    };
+    printSale(draft);
   }
 
   return (
@@ -537,119 +606,127 @@ export function Sales() {
       </section>
 
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>فاتورة بيع جديدة</h2><p>تُحفظ الفاتورة على الخادم وتُسجل حركة خصم للمخزون.</p></div></div>
-        <div className="purchase-form-grid">
-          <label>رقم الفاتورة<input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} /></label>
-          <label>اسم العميل (اختياري)<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" /></label>
-          <label>بحث عن صنف أو باركود<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="اكتب اسم الصنف أو امسح الباركود" /></label>
+        <div className="panel-heading">
+          <div>
+            <h2>فاتورة بيع</h2>
+            <p>أضف صفوف الأصناف، حدّد الكمية والسعر، ثم احفظ أو اطبع.</p>
+          </div>
         </div>
 
-        <div className="table-wrap" style={{ marginBottom: 12 }}>
+        <div className="purchase-form-grid" style={{ gridTemplateColumns: '1.2fr 0.9fr 0.9fr' }}>
+          <label>اسم العميل (اختياري)
+            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" />
+          </label>
+          <label>التاريخ
+            <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+          </label>
+          <label>رقم الفاتورة
+            <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="table-wrap" style={{ marginTop: 12 }}>
           <table className="purchase-table">
             <thead>
               <tr>
-                <th>الأصناف المتاحة للبيع</th>
-                <th>الرصيد</th>
-                <th>سعر البيع</th>
+                <th style={{ minWidth: 200 }}>الصنف / الخدمة</th>
+                <th>المتاح</th>
+                <th>الكمية</th>
+                <th>السعر</th>
+                <th>الإجمالي</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.slice(0, 30).map((p) => {
-                const stock = Number(p.stock) || 0;
-                return (
-                  <tr key={p.id}>
-                    <td>{p.name}{p.barcode ? ` · ${p.barcode}` : ''}</td>
-                    <td>{qty(stock)}</td>
-                    <td>{money(Number(p.salePrice) || 0)}</td>
-                    <td>
-                      <button
-                        className="primary-btn small"
-                        type="button"
-                        disabled={stock <= 0}
-                        onClick={() => addProduct(p)}
-                      >
-                        {stock <= 0 ? 'لا رصيد' : 'إضافة'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filteredProducts.length === 0 && (
-            <div className="empty-state">
-              {products.length === 0
-                ? 'لا توجد أصناف. سجّل فاتورة وارد من شاشة المشتريات أولًا.'
-                : 'لا نتائج لهذا البحث.'}
-            </div>
-          )}
-        </div>
-
-        <div className="panel-heading" style={{ marginTop: 8 }}>
-          <div><h2 style={{ fontSize: 16 }}>أصناف الفاتورة</h2></div>
-          <span className="count-badge">{cart.length}</span>
-        </div>
-        <div className="table-wrap">
-          <table className="purchase-table">
-            <thead><tr><th>الصنف</th><th>المتاح</th><th>الكمية</th><th>سعر البيع</th><th>الإجمالي</th><th></th></tr></thead>
-            <tbody>
               {cart.map((line) => {
                 const p = products.find((item) => item.id === line.productId);
                 const stock = Number(p?.stock) || 0;
+                const lineTotal = Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
                 return (
-                  <tr key={line.productId}>
-                    <td>{p?.name || 'صنف'}</td>
-                    <td>{qty(stock)}</td>
+                  <tr key={line.key}>
+                    <td>
+                      <select
+                        aria-label="اختر الصنف"
+                        value={line.productId}
+                        onChange={(e) => setLineProduct(line.key, e.target.value)}
+                        style={{ width: '100%', minWidth: 160 }}
+                      >
+                        <option value="">— اختر صنفًا —</option>
+                        {products.map((prod) => (
+                          <option key={prod.id} value={prod.id} disabled={(Number(prod.stock) || 0) <= 0}>
+                            {prod.name} {(Number(prod.stock) || 0) <= 0 ? '(لا رصيد)' : `(متاح ${qty(Number(prod.stock) || 0)})`}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>{line.productId ? qty(stock) : '—'}</td>
                     <td>
                       <input
                         aria-label="الكمية"
                         type="number"
                         min="0.001"
                         step="0.001"
-                        max={stock || undefined}
                         value={line.quantity}
-                        onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, quantity: e.target.value } : x))}
+                        onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                        style={{ width: 80 }}
                       />
                     </td>
                     <td>
                       <input
-                        aria-label="سعر البيع"
+                        aria-label="السعر"
                         type="number"
                         min="0"
                         step="0.01"
                         value={line.unitPrice}
-                        onChange={(e) => setCart((old) => old.map((x) => x.productId === line.productId ? { ...x, unitPrice: e.target.value } : x))}
+                        onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
+                        style={{ width: 90 }}
                       />
                     </td>
-                    <td>{money(Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0))}</td>
+                    <td>{money(lineTotal)}</td>
                     <td>
-                      <button className="icon-btn" type="button" aria-label="حذف الصنف" onClick={() => setCart((old) => old.filter((x) => x.productId !== line.productId))}>×</button>
+                      <button className="secondary-btn small" type="button" onClick={() => removeLine(line.key)}>حذف</button>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {cart.length === 0 && <div className="empty-state">اضغط «إضافة» بجانب الصنف لنقله إلى الفاتورة.</div>}
+          {cart.length === 0 && (
+            <div className="empty-state">اضغط «+ إضافة صنف» لبدء الفاتورة.</div>
+          )}
+          {products.length === 0 && (
+            <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
+          )}
         </div>
-        <div className="invoice-bottom">
-          <div className="purchase-form-grid sale-payment-fields">
-            <label>الخصم بالجنيه<input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} /></label>
-            <label>المدفوع الآن<input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder={String(total)} /></label>
+
+        <div style={{ marginTop: 10 }}>
+          <button className="secondary-btn" type="button" onClick={addEmptyRow}>+ إضافة صنف</button>
+        </div>
+
+        <div className="invoice-bottom" style={{ marginTop: 16 }}>
+          <div className="purchase-form-grid sale-payment-fields" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <label>خصم (ج)
+              <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            </label>
+            <label>المدفوع (ج)
+              <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder={String(total)} />
+            </label>
           </div>
           <div className="totals-box">
-            <div><span>الإجمالي قبل الخصم</span><b>{money(subtotal)}</b></div>
+            <div><span>قبل الخصم</span><b>{money(subtotal)}</b></div>
             <div><span>الخصم</span><b>{money(discountValue)}</b></div>
             <div className="grand-total"><span>الصافي</span><b>{money(total)}</b></div>
+            <div><span>المتبقي</span><b>{money(remaining)}</b></div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
             <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
-              {saving ? 'جارٍ الحفظ...' : 'حفظ فاتورة البيع'}
+              {saving ? 'جارٍ الحفظ...' : 'حفظ الفاتورة'}
             </button>
-            <button className="secondary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
+            <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
               حفظ وطباعة
             </button>
+            <button className="secondary-btn" type="button" onClick={printDraft}>طباعة بدون حفظ</button>
+            <button className="secondary-btn" type="button" onClick={resetForm}>فاتورة جديدة</button>
           </div>
         </div>
       </section>
