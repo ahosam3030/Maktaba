@@ -230,14 +230,15 @@ model Sale {
 model SaleItem {
   id          String  @id @default(cuid())
   saleId      String
-  productId   String
+  productId   String?  // null = بند خدمة/وصف حر بدون مخزون
   productName String
+  unit        String?  // قطعة، خدمة، ...
   quantity    Decimal @db.Decimal(12, 3)
   unitPrice   Decimal @db.Decimal(12, 3)
-  unitCost    Decimal @db.Decimal(12, 3)
+  unitCost    Decimal @default(0) @db.Decimal(12, 3)
   lineTotal   Decimal @db.Decimal(12, 3)
   sale        Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product     Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product     Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([saleId])
   @@index([productId])

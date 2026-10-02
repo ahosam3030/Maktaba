@@ -583,28 +583,37 @@ export function Sales() {
   }
 
   async function saveSale(andPrint = false) {
-    // اربط الأسماء/الباركود بالصنف قبل الحفظ (لو المستخدم ما ضغطش Enter)
+    // اربط البضاعة إن أمكن؛ وإلا اعتبر البند خدمة حرّة
     const resolvedCart = cart.map((line) => {
       if (line.productId || !line.query?.trim()) return line;
       const p = findProduct(line.query);
-      if (!p || (Number(p.stock) || 0) <= 0) return line;
+      if (p && (Number(p.stock) || 0) > 0) {
+        return {
+          ...line,
+          productId: p.id,
+          query: p.name,
+          unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
+        };
+      }
+      // خدمة / وصف حر
       return {
         ...line,
-        productId: p.id,
-        query: p.name,
-        unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
+        productId: '',
+        unit: line.unit && line.unit !== 'قطعة' ? line.unit : 'خدمة',
       };
     });
-    if (resolvedCart !== cart) setCart(resolvedCart);
+    setCart(resolvedCart);
 
-    const lines = resolvedCart.filter((l) => l.productId && Number(l.quantity) > 0);
+    const lines = resolvedCart.filter((l) => l.query?.trim() && Number(l.quantity) > 0 && Number(l.unitPrice) >= 0);
     if (lines.length === 0) {
-      setNotice('أضف صنفًا واحدًا على الأقل: اكتب الاسم أو امسح الباركود ثم انتظر المطابقة (أو اضغط Enter).');
+      setNotice('أضف بندًا واحدًا على الأقل: بضاعة من المخزون أو خدمة بالاسم والسعر.');
       return;
     }
     const inv = invoiceNumber.trim() || computeNextInvoiceNo(sales);
     if (!invoiceNumber.trim()) setInvoiceNumber(inv);
+
     for (const line of lines) {
+      if (!line.productId) continue; // خدمة — بدون مخزون
       const p = products.find((x) => x.id === line.productId);
       const stock = Number(p?.stock) || 0;
       const q = Number(line.quantity) || 0;
@@ -615,9 +624,16 @@ export function Sales() {
       }
       if (q > stock) { setNotice(`الكمية المطلوبة من «${p.name}» أكبر من المتاح (${stock}).`); return; }
     }
-    if (discountValue > subtotal) { setNotice('الخصم لا يمكن أن يتجاوز إجمالي الفاتورة.'); return; }
-    const paid = paidAmount.trim() === '' ? total : Number(paidAmount);
-    if (!Number.isFinite(paid) || paid < 0 || paid > total) { setNotice('المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الفاتورة.'); return; }
+
+    const computedSubtotal = lines.reduce(
+      (sum, l) => sum + Math.max(0, Number(l.quantity) || 0) * Math.max(0, Number(l.unitPrice) || 0),
+      0,
+    );
+    const disc = Math.max(0, Number(discount) || 0);
+    if (disc > computedSubtotal) { setNotice('الخصم لا يمكن أن يتجاوز إجمالي الفاتورة.'); return; }
+    const net = Math.max(0, computedSubtotal - disc);
+    const paid = paidAmount.trim() === '' ? net : Number(paidAmount);
+    if (!Number.isFinite(paid) || paid < 0 || paid > net) { setNotice('المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الفاتورة.'); return; }
     setSaving(true); setNotice('');
     try {
       const sale = await apiRequest<Sale>('/sales', {
@@ -626,9 +642,15 @@ export function Sales() {
           invoiceNumber: inv,
           saleDate: saleDate || undefined,
           customerName: customerName.trim() || undefined,
-          discount: discountValue,
+          discount: disc,
           paidAmount: paid,
-          items: lines.map((line) => ({ productId: line.productId, quantity: Number(line.quantity), unitPrice: Number(line.unitPrice) })),
+          items: lines.map((line) => ({
+            productId: line.productId || undefined,
+            productName: line.query.trim(),
+            unit: line.unit || (line.productId ? 'قطعة' : 'خدمة'),
+            quantity: Number(line.quantity),
+            unitPrice: Number(line.unitPrice),
+          })),
         }),
       });
       setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber} بنجاح.`);
@@ -639,8 +661,8 @@ export function Sales() {
   }
 
   function printDraft() {
-    const lines = cart.filter((l) => l.productId && Number(l.quantity) > 0);
-    if (lines.length === 0) { setNotice('أضف أصنافًا قبل الطباعة.'); return; }
+    const lines = cart.filter((l) => l.query?.trim() && Number(l.quantity) > 0);
+    if (lines.length === 0) { setNotice('أضف بنودًا قبل الطباعة.'); return; }
     const draft: Sale = {
       id: 'draft',
       invoiceNumber: invoiceNumber.trim() || 'مسودة',
@@ -656,7 +678,7 @@ export function Sales() {
         const price = Number(line.unitPrice) || 0;
         return {
           id: String(i),
-          productName: p?.name || 'صنف',
+          productName: p?.name || line.query.trim() || 'بند',
           quantity: q,
           unitPrice: price,
           lineTotal: q * price,
@@ -757,12 +779,12 @@ export function Sales() {
                       </datalist>
                       {line.productId && matched && (
                         <div style={{ fontSize: 11, marginTop: 4, color: matchedStock > 0 ? '#0f766e' : '#b45309' }}>
-                          {matchedStock > 0 ? `✓ مربوط · متاح ${qty(matchedStock)}` : `⚠ مربوط لكن الرصيد صفر`}
+                          {matchedStock > 0 ? `✓ بضاعة · متاح ${qty(matchedStock)}` : `⚠ بضاعة · الرصيد صفر`}
                         </div>
                       )}
                       {!line.productId && line.query.trim() && (
-                        <div style={{ fontSize: 11, marginTop: 4, color: '#b42318' }}>
-                          غير مربوط — اضغط Enter أو اختر من القائمة
+                        <div style={{ fontSize: 11, marginTop: 4, color: '#355a8c' }}>
+                          خدمة / بند حر (بدون خصم من المخزون)
                         </div>
                       )}
                     </td>
