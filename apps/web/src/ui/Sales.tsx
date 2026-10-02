@@ -164,88 +164,156 @@ export function Sales() {
   }
   .content { position: relative; z-index: 1; }
 
-  /* هيدر أنيق بدون مربعات حروف */
-  .top-wave {
-    height: 8px;
-    background: linear-gradient(90deg, #0a2a5c 0%, #1a4f9c 40%, #e8a317 70%, #0a2a5c 100%);
+  /* هيدر مطابق لهوية المركز */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #eef5ff 0%, #ffffff 70%);
+    padding: 0 0 8px;
+    border-bottom: 3px solid #1a4f9c;
   }
-  .header {
+  .hero-bg-left {
+    position: absolute;
+    top: -30px; right: -40px;
+    width: 200px; height: 180px;
+    background: radial-gradient(circle at 30% 40%, #1a4f9c 0%, #0d2f66 60%, transparent 70%);
+    border-radius: 50%;
+    opacity: 0.95;
+  }
+  .hero-bg-right {
+    position: absolute;
+    top: -20px; left: -50px;
+    width: 190px; height: 170px;
+    background: radial-gradient(circle at 70% 40%, #1a4f9c 0%, #0a2558 65%, transparent 72%);
+    border-radius: 50%;
+    opacity: 0.95;
+  }
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 110px 1fr 120px;
+    gap: 8px;
+    align-items: center;
+    padding: 14px 16px 10px;
+  }
+  .hero-art {
     text-align: center;
-    padding: 16px 18px 12px;
-    background: linear-gradient(180deg, #f3f7fd 0%, #ffffff 100%);
-    border-bottom: 2px solid #1a4f9c;
+    font-size: 28px;
+    line-height: 1.2;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.12));
   }
-  .header .badge {
-    display: inline-block;
-    background: linear-gradient(135deg, #f0b429, #d9920a);
-    color: #1a2a4a;
-    font-weight: 800;
-    font-size: 12px;
-    padding: 3px 20px;
-    border-radius: 20px;
-    margin-bottom: 6px;
+  .hero-art .row { letter-spacing: 2px; }
+  .hero-brand { text-align: center; }
+  .hero-brand h1 {
+    margin: 0;
+    font-size: 30px;
+    color: #0a2f6e;
+    font-weight: 900;
     letter-spacing: 1px;
   }
-  .header h1 {
-    margin: 0;
-    font-size: 28px;
-    color: #0d3a7a;
-    font-weight: 900;
-    letter-spacing: 0.5px;
-  }
-  .header .sub {
+  .hero-brand .sub {
     margin: 4px 0 0;
-    font-size: 14px;
-    color: #2a5a9e;
-    font-weight: 700;
+    font-size: 13px;
+    color: #1a4f9c;
+    font-weight: 800;
   }
-  .header .full-name {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: #4a6a94;
+  .hero-brand .addr {
+    margin: 5px 0 0;
+    font-size: 11px;
+    color: #3d5f8c;
+    font-weight: 600;
   }
-
-  .contact-bar {
+  .hero-brand .phone {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #0d2f66;
+    font-weight: 800;
+  }
+  .hero-side {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
+    gap: 4px;
+  }
+  .hero-logo {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #0d3a7a, #1a4f9c);
+    border: 3px solid #e8a317;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    box-shadow: 0 3px 10px rgba(13,47,102,.3);
+  }
+  .svc-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+  }
+  .svc-tags span {
+    display: block;
     background: #0d2f66;
     color: #fff;
-    padding: 9px 14px;
-    font-size: 12px;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    padding: 3px 4px;
+    border-radius: 4px;
+    border-right: 3px solid #e8a317;
   }
-  .contact-bar span { white-space: nowrap; }
 
-  .body-pad { padding: 14px 16px 0; }
+  .body-pad { padding: 12px 16px 0; }
 
-  .title-wrap { text-align: center; margin: 4px 0 12px; }
+  .title-wrap { text-align: center; margin: 2px 0 12px; }
   .title-wrap .title {
     display: inline-block;
-    background: linear-gradient(135deg, #f0b429, #d9920a);
-    color: #1a2a4a;
-    font-size: 17px;
+    background: linear-gradient(135deg, #1a4f9c, #0d2f66);
+    color: #fff;
+    font-size: 16px;
     font-weight: 900;
-    padding: 6px 40px;
-    border-radius: 22px;
-    border: 2px solid #c98912;
-    box-shadow: 0 2px 0 #b87a0c;
+    padding: 7px 42px;
+    border-radius: 24px;
+    border: 2px solid #e8a317;
+    box-shadow: 0 2px 0 #0a2558;
   }
 
   .meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px 18px;
-    border: 1.5px solid #b8cce8;
-    border-radius: 8px;
-    padding: 10px 14px;
+    gap: 8px 14px;
     margin-bottom: 12px;
-    background: rgba(247, 250, 255, 0.92);
-    font-size: 13px;
+    font-size: 12.5px;
   }
-  .meta div { display: flex; gap: 6px; flex-wrap: wrap; }
-  .meta strong { color: #0d3a7a; }
+  .meta .field {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1.5px solid #9eb6d8;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.9);
+    min-height: 34px;
+  }
+  .meta .field label {
+    background: #1a4f9c;
+    color: #fff;
+    font-weight: 800;
+    font-size: 11px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    min-width: 78px;
+    text-align: center;
+  }
+  .meta .field span {
+    flex: 1;
+    padding: 6px 10px;
+    font-weight: 700;
+    color: #0d2f66;
+  }
 
   table.items {
     width: 100%;
@@ -342,25 +410,40 @@ export function Sales() {
   <div class="sheet">
     <div class="watermark" aria-hidden="true">${wmCells}</div>
     <div class="content">
-      <div class="top-wave"></div>
-      <div class="header">
-        <div class="badge">مركز</div>
-        <h1>المهندس</h1>
-        <p class="sub">للخدمات العلمية والطباعة</p>
-        <p class="full-name">${escapeHtml(centerName)}</p>
-      </div>
-      <div class="contact-bar">
-        <span>تليفون / واتساب: ${escapeHtml(phone)}</span>
-        <span>${escapeHtml(address)}</span>
+      <div class="hero">
+        <div class="hero-bg-left"></div>
+        <div class="hero-bg-right"></div>
+        <div class="hero-inner">
+          <div class="hero-art" aria-hidden="true">
+            <div class="row">📚🖨️</div>
+            <div class="row">💻✏️📐</div>
+          </div>
+          <div class="hero-brand">
+            <h1>مركز المهندس</h1>
+            <p class="sub">للخدمات العلمية والطباعة والأدوات المكتبية</p>
+            <p class="addr">${escapeHtml(address)}</p>
+            <p class="phone">تليفون / واتساب: <span dir="ltr">${escapeHtml(phone)}</span></p>
+          </div>
+          <div class="hero-side">
+            <div class="hero-logo">🎓</div>
+            <div class="svc-tags">
+              <span>خدمات علمية</span>
+              <span>تصوير وطباعة</span>
+              <span>أدوات مكتبية</span>
+              <span>تصميم وبرمجة</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="body-pad">
         <div class="title-wrap"><span class="title">فاتورة مبيعات</span></div>
 
         <div class="meta">
-          <div><strong>رقم الفاتورة:</strong> <span dir="ltr">${invNo}</span></div>
-          <div><strong>التاريخ:</strong> ${escapeHtml(dateStr)}</div>
-          <div style="grid-column:1/-1"><strong>اسم العميل:</strong> ${customer}</div>
+          <div class="field"><label>اسم العميل</label><span>${customer}</span></div>
+          <div class="field"><label>التاريخ</label><span>${escapeHtml(dateStr)}</span></div>
+          <div class="field"><label>رقم الهاتف</label><span dir="ltr">—</span></div>
+          <div class="field"><label>رقم الفاتورة</label><span dir="ltr">${invNo}</span></div>
         </div>
 
         <table class="items">
