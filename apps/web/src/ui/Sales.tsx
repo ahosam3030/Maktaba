@@ -31,18 +31,33 @@ export function Sales() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  /** أكبر رقم فاتورة + 1 (أرقام فقط من نهاية الرقم أو الرقم كاملًا) */
+  function computeNextInvoiceNo(records: Sale[]): string {
+    let max = 0;
+    for (const s of records) {
+      const raw = String(s.invoiceNumber || '').trim();
+      const m = raw.match(/(\d+)\s*$/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (Number.isFinite(n) && n > max) max = n;
+      }
+    }
+    return String(max + 1);
+  }
+
   const refresh = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const [stock, records] = await Promise.all([apiRequest<Product[]>('/inventory'), apiRequest<Sale[]>('/sales')]);
-      // تطبيع الأرقام القادمة من الـ API
       setProducts((stock || []).map((p) => ({
         ...p,
         stock: Number(p.stock) || 0,
         salePrice: Number(p.salePrice) || 0,
         currentCost: Number(p.currentCost) || 0,
       })));
-      setSales(records || []);
+      const list = records || [];
+      setSales(list);
+      setInvoiceNumber(computeNextInvoiceNo(list));
     } catch (e) { setError(e instanceof Error ? e.message : 'تعذر تحميل بيانات المبيعات.'); }
     finally { setLoading(false); }
   }, []);
@@ -131,13 +146,13 @@ export function Sales() {
     setCart((old) => old.filter((line) => line.key !== key));
   }
 
-  function resetForm() {
+  function resetForm(nextSales?: Sale[]) {
     setCart([]);
     setCustomerName('');
     setDiscount('0');
     setPaidAmount('');
     setSaleDate(new Date().toISOString().slice(0, 10));
-    setInvoiceNumber(`S-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-5)}`);
+    setInvoiceNumber(computeNextInvoiceNo(nextSales ?? sales));
     setNotice('');
   }
 
@@ -564,11 +579,27 @@ export function Sales() {
   }
 
   async function saveSale(andPrint = false) {
-    const lines = cart.filter((l) => l.productId && Number(l.quantity) > 0);
-    if (!invoiceNumber.trim() || lines.length === 0) {
-      setNotice('أدخل رقم الفاتورة وأضف صنفًا واحدًا على الأقل من القائمة.');
+    // اربط الأسماء/الباركود بالصنف قبل الحفظ (لو المستخدم ما ضغطش Enter)
+    const resolvedCart = cart.map((line) => {
+      if (line.productId || !line.query?.trim()) return line;
+      const p = findProduct(line.query);
+      if (!p || (Number(p.stock) || 0) <= 0) return line;
+      return {
+        ...line,
+        productId: p.id,
+        query: p.name,
+        unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
+      };
+    });
+    if (resolvedCart !== cart) setCart(resolvedCart);
+
+    const lines = resolvedCart.filter((l) => l.productId && Number(l.quantity) > 0);
+    if (lines.length === 0) {
+      setNotice('أضف صنفًا واحدًا على الأقل: اكتب الاسم أو امسح الباركود ثم انتظر المطابقة (أو اضغط Enter).');
       return;
     }
+    const inv = invoiceNumber.trim() || computeNextInvoiceNo(sales);
+    if (!invoiceNumber.trim()) setInvoiceNumber(inv);
     for (const line of lines) {
       const p = products.find((x) => x.id === line.productId);
       const stock = Number(p?.stock) || 0;
@@ -584,7 +615,7 @@ export function Sales() {
       const sale = await apiRequest<Sale>('/sales', {
         method: 'POST',
         body: JSON.stringify({
-          invoiceNumber: invoiceNumber.trim(),
+          invoiceNumber: inv,
           saleDate: saleDate || undefined,
           customerName: customerName.trim() || undefined,
           discount: discountValue,
@@ -593,7 +624,6 @@ export function Sales() {
         }),
       });
       setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber} بنجاح.`);
-      resetForm();
       await refresh();
       if (andPrint) printSale(sale);
     } catch (e) { setNotice(e instanceof Error ? e.message : 'تعذر حفظ فاتورة البيع.'); }
@@ -658,8 +688,12 @@ export function Sales() {
           <label>التاريخ
             <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
           </label>
-          <label>رقم الفاتورة
-            <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+          <label>رقم الفاتورة (تلقائي)
+            <input
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              title="يُولَّد بالترتيب تلقائيًا ويمكن تعديله يدويًا"
+            />
           </label>
         </div>
 
