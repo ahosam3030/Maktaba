@@ -25,7 +25,7 @@ function hashPassword(plain) {
 }
 
 function isStrongPassword(password) {
-  if (!password) return false;
+  if (!password || password.length < 8) return false;
   if (!/[A-Z]/.test(password)) return false;
   if (!/[a-z]/.test(password)) return false;
   if (!/[0-9]/.test(password)) return false;
@@ -49,6 +49,12 @@ async function main() {
 
   console.log('⚠ مسح كل المؤسسات والمستخدمين والبيانات...');
 
+  // ترتيب الحذف يحترم قيود FK
+  await prisma.saleReturnItem.deleteMany().catch(() => {});
+  await prisma.saleReturn.deleteMany().catch(() => {});
+  await prisma.serviceReceiptItem.deleteMany().catch(() => {});
+  await prisma.serviceReceipt.deleteMany().catch(() => {});
+  await prisma.service.deleteMany().catch(() => {});
   await prisma.saleItem.deleteMany();
   await prisma.sale.deleteMany();
   await prisma.stockMovement.deleteMany();
@@ -58,17 +64,18 @@ async function main() {
   await prisma.purchaseInvoiceItem.deleteMany();
   await prisma.purchaseInvoice.deleteMany();
   await prisma.cashTransaction.deleteMany();
+  await prisma.auditLog.deleteMany().catch(() => {});
   await prisma.product.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.user.deleteMany();
-  await prisma.branch.deleteMany();
+  await prisma.branch.deleteMany().catch(() => {});
   await prisma.organization.deleteMany();
 
   const email = (process.env.SEED_OWNER_EMAIL || 'admin@maktaba.local').toLowerCase();
   const fullName = process.env.SEED_OWNER_NAME || 'المالك';
   const orgName = process.env.SEED_ORG_NAME || 'مركز المهندس للخدمات العلمية والطباعة';
   const slug = (process.env.SEED_ORG_SLUG || 'al-mohandes').toLowerCase();
-  const phone = process.env.SEED_ORG_PHONE || '01127897245';
+  const phone = process.env.SEED_ORG_PHONE || '';
 
   const passwordHash = hashPassword(password);
   const org = await prisma.organization.create({

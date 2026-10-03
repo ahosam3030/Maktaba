@@ -400,3 +400,16 @@ model SaleReturnItem {
   @@index([returnId])
   @@index([saleItemId])
 }
+
+
+model IdempotencyRecord {
+  id             String   @id // مفتاح العميل X-Idempotency-Key
+  organizationId String
+  method         String
+  path           String
+  statusCode     Int
+  responseBody   String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}

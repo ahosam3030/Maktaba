@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { HealthController } from './health.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -16,6 +16,7 @@ import { ServicesController, ServiceReceiptsController } from './services.contro
 import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { SettingsController } from './settings.controller';
+import { IdempotencyInterceptor } from './idempotency.interceptor';
 
 const WEAK_JWT = new Set([
   '',
@@ -56,6 +57,12 @@ if (!jwtSecret || WEAK_JWT.has(jwtSecret) || jwtSecret.length < 32) {
     AuditController,
     SettingsController,
   ],
-  providers: [AuthService, AuditService, JwtAuthGuard, PermissionsGuard],
+  providers: [
+      AuthService,
+      AuditService,
+      JwtAuthGuard,
+      PermissionsGuard,
+      { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+    ],
 })
 export class AppModule {}

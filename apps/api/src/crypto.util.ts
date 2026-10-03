@@ -1,10 +1,13 @@
+import * as crypto from 'crypto';
+import * as bcrypt from 'bcryptjs';
 
-/** سياسة كلمة المرور: حرف كبير + صغير + رقم + رمز (بدون حد أدنى للطول) */
+
+/** سياسة كلمة المرور: 8 أحرف على الأقل + كبير + صغير + رقم + رمز */
 export const PASSWORD_POLICY_MESSAGE =
-  'كلمة المرور يجب أن تشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا (!@#$%^&* إلخ).';
+  'كلمة المرور: 8 أحرف على الأقل وتشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا (!@#$%^&* إلخ).';
 
 export function isStrongPassword(password: string): boolean {
-  if (!password) return false;
+  if (!password || password.length < 8) return false;
   if (!/[A-Z]/.test(password)) return false;
   if (!/[a-z]/.test(password)) return false;
   if (!/[0-9]/.test(password)) return false;
@@ -12,8 +15,17 @@ export function isStrongPassword(password: string): boolean {
   return true;
 }
 
-import * as crypto from 'crypto';
-import * as bcrypt from 'bcryptjs';
+/** true إذا كانت الصيغة قديمة (bcrypt) أو تكرارات PBKDF2 أقل من الحالي */
+export function passwordNeedsRehash(passwordHash: string): boolean {
+  if (!passwordHash) return true;
+  if (passwordHash.startsWith('$2a$') || passwordHash.startsWith('$2b$') || passwordHash.startsWith('$2y$')) {
+    return true;
+  }
+  if (!passwordHash.startsWith('pbkdf2_sha256$')) return true;
+  const parts = passwordHash.split('$');
+  const iterations = parseInt(parts[1] || '0', 10);
+  return !Number.isFinite(iterations) || iterations < 210_000;
+}
 
 /**
  * كلمات المرور: PBKDF2-HMAC-SHA256 (ملح عشوائي + تكرارات كثيرة).

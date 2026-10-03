@@ -17,7 +17,7 @@ export type PrintSettingsDto = {
 const DEFAULTS: PrintSettingsDto = {
   brandTitle: 'مركز المهندس',
   brandSubtitle: 'للخدمات العلمية والطباعة والأدوات المكتبية',
-  phone: '01127897245',
+  phone: '',
   address: 'شارع بورسعيد أمام الإدارة التعليمية الجديدة — شرق مستشفى العدوة المركزي',
   watermarkText: 'مركز المهندس للخدمات العلمية والطباعة',
   serviceTags: ['خدمات علمية', 'تصوير وطباعة', 'أدوات مكتبية'],

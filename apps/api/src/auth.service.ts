@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
 import { ALL_PERMISSIONS, isAdminRole, parsePermissions } from './auth';
-import { hashPassword, verifyPassword, isStrongPassword, PASSWORD_POLICY_MESSAGE } from './crypto.util';
+import { hashPassword, verifyPassword, isStrongPassword, passwordNeedsRehash, PASSWORD_POLICY_MESSAGE } from './crypto.util';
 
 @Injectable()
 export class AuthService {
@@ -101,6 +101,10 @@ export class AuthService {
       !(await verifyPassword(password, user.passwordHash))
     ) {
       throw new UnauthorizedException('بيانات الدخول غير صحيحة.');
+    }
+    if (passwordNeedsRehash(user.passwordHash)) {
+      const newHash = await hashPassword(password);
+      await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } });
     }
     return this.issue(user, user.organization);
   }

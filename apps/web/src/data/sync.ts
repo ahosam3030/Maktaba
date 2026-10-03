@@ -1,5 +1,5 @@
 import { db, type OutboxItem } from './db';
-import { getToken, clearSession } from './api';
+import { getToken, clearSession, getStoredOrganization } from './api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -43,11 +43,13 @@ export async function enqueueMutation(input: {
   body?: unknown;
   label?: string;
 }): Promise<OutboxItem> {
+  const org = getStoredOrganization();
   const item: OutboxItem = {
     id: crypto.randomUUID(),
     method: (input.method || 'POST').toUpperCase(),
     path: input.path.startsWith('/') ? input.path : `/${input.path}`,
     body: input.body !== undefined ? JSON.stringify(input.body) : null,
+    organizationId: org?.id || null,
     label: input.label || `${input.method} ${input.path}`,
     createdAt: new Date().toISOString(),
     status: 'pending',
@@ -106,6 +108,8 @@ export async function processSyncQueue(): Promise<{ synced: number; failed: numb
   let synced = 0;
   let failed = 0;
   try {
+    const org = getStoredOrganization();
+    const orgId = org?.id || null;
     const pending = await db.outbox
       .where('status')
       .anyOf(['pending', 'failed'])
@@ -113,6 +117,8 @@ export async function processSyncQueue(): Promise<{ synced: number; failed: numb
 
     for (const item of pending) {
       if (item.permanent) continue;
+      // لا ترسل عناصر مكتبة أخرى على نفس الجهاز
+      if (item.organizationId && orgId && item.organizationId !== orgId) continue;
       await db.outbox.update(item.id, { status: 'processing' });
       try {
         await sendOne(item);
