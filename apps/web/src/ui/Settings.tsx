@@ -203,56 +203,100 @@ export function Settings() {
 
       {tab === 'products' && canProducts && (
         <div className="settings-tab-panel">
-          <section className="purchase-panel" style={{ marginBottom: 16 }}>
+          <section className="purchase-panel units-panel" style={{ marginBottom: 16 }}>
             <div className="panel-heading">
               <div>
                 <h2>وحدات القياس</h2>
-                <p>تظهر في قائمة «الوحدة» داخل فاتورة البيع. أضف أي وحدة تحتاجها (مثل: متر، كيلو، ملف…).</p>
+                <p>تظهر في قائمة الوحدة داخل فاتورة البيع. اكتب الوحدة واضغط إضافة أو Enter.</p>
               </div>
             </div>
-            <div className="settings-form-grid">
-              <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
-                الوحدات (سطر لكل وحدة)
-                <textarea
-                  className="settings-textarea"
-                  rows={6}
-                  value={unitsText}
-                  onChange={(e) => setUnitsText(e.target.value)}
-                />
-              </label>
-              <label className="pur-field">
-                إضافة وحدة سريعة
-                <input
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  placeholder="مثال: متر"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const n = newUnit.trim();
-                      if (!n) return;
-                      const next = Array.from(new Set([...unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean), n]));
-                      setUnitsText(next.join('\n'));
+
+            <div className="units-add-row">
+              <input
+                className="units-add-input"
+                value={newUnit}
+                onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="اكتب وحدة جديدة… مثل: كورة، متر، ملف"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const n = newUnit.trim();
+                    if (!n) return;
+                    const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
+                    if (list.includes(n)) {
+                      setNotice(`«${n}» موجودة بالفعل.`);
                       setNewUnit('');
+                      return;
                     }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="pur-footer-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+                    const next = [...list, n];
+                    setUnitsText(next.join('\n'));
+                    saveSaleUnits(next);
+                    setNewUnit('');
+                    setNotice(`تمت إضافة «${n}».`);
+                  }
+                }}
+              />
               <button
-                className="primary-btn"
+                className="primary-btn units-add-btn"
                 type="button"
                 onClick={() => {
-                  const list = saveSaleUnits(unitsText.split(/\n/));
-                  setUnitsText(list.join('\n'));
-                  setNotice('تم حفظ وحدات القياس. افتح المبيعات من جديد أو حدّث الصفحة.');
+                  const n = newUnit.trim();
+                  if (!n) {
+                    setNotice('اكتب اسم الوحدة أولًا.');
+                    return;
+                  }
+                  const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
+                  if (list.includes(n)) {
+                    setNotice(`«${n}» موجودة بالفعل.`);
+                    setNewUnit('');
+                    return;
+                  }
+                  const next = [...list, n];
+                  setUnitsText(next.join('\n'));
+                  saveSaleUnits(next);
+                  setNewUnit('');
+                  setNotice(`تمت إضافة «${n}».`);
                 }}
               >
-                حفظ الوحدات
+                إضافة
               </button>
+            </div>
+
+            <div className="units-chips" role="list">
+              {unitsText
+                .split(/\n/)
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .map((u) => (
+                  <span key={u} className="unit-chip" role="listitem">
+                    {u}
+                    <button
+                      type="button"
+                      className="unit-chip-remove"
+                      title={`حذف ${u}`}
+                      aria-label={`حذف ${u}`}
+                      onClick={() => {
+                        const next = unitsText
+                          .split(/\n/)
+                          .map((x) => x.trim())
+                          .filter((x) => x && x !== u);
+                        setUnitsText(next.join('\n'));
+                        saveSaleUnits(next);
+                        setNotice(`تم حذف «${u}».`);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+            </div>
+
+            <div className="units-panel-footer">
+              <span className="units-count">
+                {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length} وحدة
+              </span>
               <button
-                className="secondary-btn"
+                className="secondary-btn small"
                 type="button"
                 onClick={() => {
                   if (!confirm('استعادة الوحدات الافتراضية؟')) return;
@@ -261,12 +305,9 @@ export function Settings() {
                   setNotice('تمت استعادة الوحدات الافتراضية.');
                 }}
               >
-                افتراضي
+                استعادة الافتراضي
               </button>
             </div>
-            <p style={{ margin: '10px 0 0', fontSize: 12, color: '#6b8288' }}>
-              الافتراضي: {DEFAULT_SALE_UNITS.join(' · ')}
-            </p>
           </section>
           <Inventory embedded />
         </div>

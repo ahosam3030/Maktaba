@@ -1799,3 +1799,86 @@ html,body,input,button,select,textarea,table{
   color:#0f766e;
 }
 .product-thumb--empty{border:1px dashed #c5d8d4}
+
+/* ===== Units chips (Settings) ===== */
+.units-panel .panel-heading{margin-bottom:14px}
+.units-add-row{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  margin-bottom:16px;
+}
+.units-add-input{
+  flex:1;
+  border:1px solid #d5e2e0;
+  border-radius:12px;
+  padding:12px 14px;
+  font:inherit;
+  font-size:14px;
+  background:#fbfdfd;
+  transition:border-color .15s,box-shadow .15s;
+}
+.units-add-input:focus{
+  outline:none;
+  border-color:#0f766e;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12);
+  background:#fff;
+}
+.units-add-btn{
+  flex-shrink:0;
+  min-width:100px;
+  border-radius:12px !important;
+}
+.units-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  min-height:48px;
+  padding:14px;
+  background:linear-gradient(180deg,#f7fffc,#fff);
+  border:1px solid #e0ece9;
+  border-radius:14px;
+}
+.unit-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 10px 7px 12px;
+  background:#fff;
+  border:1px solid #cfe5e0;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:600;
+  color:#0f2a30;
+  box-shadow:0 1px 2px rgba(15,42,48,.04);
+}
+.unit-chip-remove{
+  width:22px;height:22px;
+  border:0;
+  border-radius:50%;
+  background:#eef5f3;
+  color:#5a7378;
+  font-size:15px;
+  line-height:1;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  padding:0;
+}
+.unit-chip-remove:hover{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+.units-panel-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:14px;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.units-count{
+  font-size:12px;
+  color:#6b8288;
+  font-weight:600;
+}
