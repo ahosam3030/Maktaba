@@ -25,7 +25,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
@@ -34,7 +35,9 @@
     "@types/bcryptjs": "^2.4.6",
     "prisma": "^6.3.1",
     "typescript": "^5.7.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
