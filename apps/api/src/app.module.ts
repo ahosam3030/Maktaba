@@ -13,6 +13,8 @@ import { AccountingController } from './accounting.controller';
 import { UsersController } from './users.controller';
 import { ReportsController } from './reports.controller';
 import { ServicesController, ServiceReceiptsController } from './services.controller';
+import { AuditService } from './audit.service';
+import { AuditController } from './audit.controller';
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret && process.env.NODE_ENV === 'production') {
@@ -41,7 +43,8 @@ if (!jwtSecret && process.env.NODE_ENV === 'production') {
     AccountingController,
     ServicesController,
     ServiceReceiptsController,
+    AuditController,
   ],
-  providers: [AuthService, JwtAuthGuard, PermissionsGuard],
+  providers: [AuthService, AuditService, JwtAuthGuard, PermissionsGuard],
 })
 export class AppModule {}

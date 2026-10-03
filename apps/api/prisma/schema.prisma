@@ -340,3 +340,21 @@ model ServiceReceiptItem {
 
   @@index([receiptId])
 }
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String?
+  action         String
+  entity         String?
+  entityId       String?
+  ip             String?
+  userAgent      String?
+  meta           String?
+  success        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+  @@index([userId, createdAt])
+}

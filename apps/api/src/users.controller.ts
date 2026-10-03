@@ -22,11 +22,15 @@ import {
   PermissionsGuard,
 } from './auth';
 import { hashPassword, isStrongPassword, PASSWORD_POLICY_MESSAGE } from './crypto.util';
+import { AuditService } from './audit.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
   @RequirePermission('users')
@@ -113,6 +117,15 @@ export class UsersController {
           active: true,
           createdAt: true,
         },
+      });
+      await this.audit.log({
+        organizationId: actor.organizationId,
+        userId: actor.userId,
+        action: 'USER_CREATE',
+        entity: 'User',
+        entityId: created.id,
+        meta: { email: created.email, role: created.role },
+        success: true,
       });
       return {
         ...created,
@@ -230,6 +243,15 @@ export class UsersController {
     }
 
     await this.prisma.user.delete({ where: { id: target.id } });
+    await this.audit.log({
+      organizationId: actor.organizationId,
+      userId: actor.userId,
+      action: 'USER_DELETE',
+      entity: 'User',
+      entityId: target.id,
+      meta: { email: target.email, role: target.role },
+      success: true,
+    });
     return { ok: true, id: target.id, email: target.email };
   }
 }
