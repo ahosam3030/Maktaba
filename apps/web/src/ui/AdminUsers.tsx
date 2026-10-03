@@ -16,7 +16,7 @@ const PERM_LABELS: Record<string, string> = {
   sales: 'المبيعات',
   inventory: 'المخزون',
   accounting: 'الخزينة',
-  printing: 'الطباعة',
+  printing: 'الخدمات', reports: 'التقارير',
   users: 'إدارة المستخدمين',
 };
 

@@ -11,6 +11,7 @@ import { Printing } from './Printing';
 import { Accounting } from './Accounting';
 import { AdminUsers } from './AdminUsers';
 import { Settings } from './Settings';
+import { Reports } from './Reports';
 
 type ConnectionState = 'checking' | 'online' | 'offline';
 type AuthMode = 'login' | 'register';
@@ -32,7 +33,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'admin' | 'settings'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'admin' | 'settings'>('dashboard');
 
   const isLoggedIn = Boolean(getToken() && sessionUser);
 
@@ -160,6 +161,9 @@ export function App() {
           {hasPermission(sessionUser, 'accounting') && (
             <a className={activeSection === 'accounting' ? 'active' : ''} href="#accounting" onClick={() => setActiveSection('accounting')}>الخزينة</a>
           )}
+          {hasPermission(sessionUser, 'reports') && (
+            <a className={activeSection === 'reports' ? 'active' : ''} href="#reports" onClick={() => setActiveSection('reports')}>التقارير</a>
+          )}
           {hasPermission(sessionUser, 'printing') && (
             <a className={activeSection === 'printing' ? 'active' : ''} href="#printing" onClick={() => setActiveSection('printing')}>الخدمات والإيصالات</a>
           )}
@@ -203,6 +207,7 @@ export function App() {
           : activeSection === 'sales' && hasPermission(sessionUser, 'sales') ? <Sales />
           : activeSection === 'printing' && hasPermission(sessionUser, 'printing') ? <Printing />
           : activeSection === 'accounting' && hasPermission(sessionUser, 'accounting') ? <Accounting />
+          : activeSection === 'reports' && hasPermission(sessionUser, 'reports') ? <Reports />
           : activeSection === 'admin' && isAdminUser(sessionUser) ? <AdminUsers />
           : activeSection === 'settings' && isLoggedIn ? <Settings />
           : <>

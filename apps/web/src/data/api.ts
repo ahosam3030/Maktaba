@@ -4,7 +4,7 @@ const TOKEN_KEY = 'maktaba_access_token';
 const USER_KEY = 'maktaba_user';
 const ORG_KEY = 'maktaba_organization';
 
-export const ALL_PERMISSIONS = ['purchases', 'sales', 'inventory', 'accounting', 'printing', 'users'] as const;
+export const ALL_PERMISSIONS = ['purchases', 'sales', 'inventory', 'accounting', 'printing', 'reports', 'users'] as const;
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
 export function getToken(): string | null {

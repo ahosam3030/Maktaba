@@ -15,6 +15,7 @@ export const ALL_PERMISSIONS = [
   'inventory',
   'accounting',
   'printing',
+  'reports',
   'users',
 ] as const;
 
