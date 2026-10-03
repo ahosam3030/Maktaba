@@ -320,9 +320,7 @@ export function App() {
         <div className="product-login-bg" aria-hidden />
         <header className="product-login-header">
           <div className="product-brand">
-            <span className="product-brand-mark" aria-hidden>
-              م
-            </span>
+            <span className="product-brand-mark" aria-hidden>م</span>
             <div>
               <strong>Maktaba</strong>
               <span>نظام إدارة مراكز الخدمات والمكتبات</span>
@@ -330,7 +328,6 @@ export function App() {
           </div>
           <span className="product-version">v1.0</span>
         </header>
-
         <div className="product-login-body">
           <section className="product-login-pitch">
             <p className="product-eyebrow">منتج تشغيلي للمراكز</p>
@@ -341,7 +338,7 @@ export function App() {
             <ul className="product-points">
               <li>
                 <strong>عمليات مترابطة</strong>
-                <span>وارد → مخزون → بيع → خزينة</span>
+                <span>وارد ← مخزون ← بيع ← خزينة</span>
               </li>
               <li>
                 <strong>خدمات وإيصالات</strong>
@@ -353,7 +350,6 @@ export function App() {
               </li>
             </ul>
           </section>
-
           <section className="product-login-card">
             <div className="product-login-card-head">
               <h2>تسجيل الدخول</h2>
@@ -394,20 +390,22 @@ export function App() {
             >
               {busy ? 'جارٍ الدخول...' : 'دخول إلى النظام'}
             </button>
-            {message && (
+            {message ? (
               <p
-                className={`feedback product-login-msg${/فشل|غير|خطأ|غير صحيحة/i.test(message) ? ' is-error' : ''}`}
+                className={
+                  'feedback product-login-msg' +
+                  (/فشل|غير|خطأ|غير صحيحة/i.test(message) ? ' is-error' : '')
+                }
                 role="status"
               >
                 {message}
               </p>
-            )}
+            ) : null}
             <p className="product-login-footnote">
               لا يمكن إنشاء حساب من هذه الشاشة. حسابات الموظفين يُنشئها المالك بعد الدخول.
             </p>
           </section>
         </div>
-
         <footer className="product-login-footer">
           <span>© Maktaba — للاستخدام الداخلي للمركز</span>
         </footer>
@@ -473,7 +471,7 @@ export function App() {
           )}
         </nav>
         <div className="sidebar-footer">
-          {sessionUser ? (
+          {isLoggedIn && sessionUser ? (
             <>
               <div className="user-chip">
                 <strong>{sessionUser.fullName}</strong>
@@ -485,7 +483,9 @@ export function App() {
                 <span>تسجيل الخروج</span>
               </button>
             </>
-          ) : null}
+          ) : (
+            <span className="muted-sm">سجّل الدخول للمتابعة</span>
+          )}
         </div>
       </aside>
 
@@ -578,40 +578,6 @@ export function App() {
             <span className="pill muted">{apiStatus}</span>
           </div>
         </div>
-
-                    dir="ltr"
-                    placeholder="name@example.com"
-                    autoComplete="username"
-                  />
-                </label>
-                <label>
-                  كلمة المرور
-                  <input
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    dir="ltr"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void handleLogin();
-                    }}
-                  />
-                </label>
-              </div>
-              <div className="form-actions">
-                <button className="primary-btn" type="button" onClick={() => void handleLogin()} disabled={busy}>
-                  {busy ? 'جارٍ الدخول...' : 'دخول'}
-                </button>
-              </div>
-              {message && (
-                <p className="feedback" role="status">
-                  {message}
-                </p>
-              )}
-            </section>
-          </div>
-        )}
 
         {activeSection === 'dashboard' && isLoggedIn && (
           <div className="home-dashboard">
