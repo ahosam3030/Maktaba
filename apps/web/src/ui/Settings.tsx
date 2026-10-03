@@ -202,7 +202,7 @@ export function Settings() {
       )}
 
       {tab === 'products' && canProducts && (
-        <div className="settings-tab-panel">
+        <div className="settings-tab-panel products-suite">
           <section className="purchase-panel units-panel">
             <div className="units-hero">
               <div className="units-hero-icon" aria-hidden>

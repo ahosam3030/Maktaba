@@ -2000,3 +2000,99 @@ html,body,input,button,select,textarea,table{
   .units-add-row{flex-direction:column}
   .units-add-btn{width:100%}
 }
+
+/* ===== Products suite (Settings) ===== */
+.products-suite{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+.products-suite-head{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:16px 18px;
+  background:#fff;
+  border:1px solid #d9e8e4;
+  border-radius:16px;
+  box-shadow:0 4px 16px rgba(15,42,48,.04);
+}
+.products-suite-mark{
+  width:48px;height:48px;
+  border-radius:14px;
+  background:linear-gradient(145deg,#ecfdf8,#d1fae5);
+  color:#0f766e;
+  display:grid;
+  place-items:center;
+  flex-shrink:0;
+}
+.products-suite-head h2{
+  margin:0 0 4px;
+  font-size:16px;
+  color:#0f2a30;
+}
+.products-suite-head p{
+  margin:0;
+  font-size:12.5px;
+  color:#6b8288;
+  line-height:1.45;
+}
+.products-suite-head .secondary-btn{
+  margin-inline-start:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
+.pur-stats--compact{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+.pur-stats--compact .pur-stat{
+  padding:12px 14px;
+}
+.pur-stats--compact .value{font-size:18px}
+
+.product-form-card{
+  border:1px solid #d5ebe6 !important;
+  background:linear-gradient(180deg,#fbfdff 0%,#fff 40%) !important;
+  box-shadow:0 8px 24px rgba(15,42,48,.05) !important;
+}
+.product-form-card .panel-heading h2{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.product-form-card .settings-form-grid{
+  gap:12px;
+}
+.product-form-card .pur-field input,
+.product-form-card .pur-field select{
+  border-radius:10px;
+  border-color:#d0e0dc;
+  background:#fff;
+}
+.product-form-card .pur-field input:focus,
+.product-form-card .pur-field select:focus{
+  border-color:#0f766e;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12);
+}
+
+/* Units micro-interactions */
+.unit-chip{
+  animation:unitIn .2s ease;
+}
+@keyframes unitIn{
+  from{opacity:0;transform:scale(.92)}
+  to{opacity:1;transform:scale(1)}
+}
+.units-add-input::placeholder{color:#9aafb3}
+
+/* Settings products tab active polish already via rpt-tabs */
+
+@media (max-width:800px){
+  .pur-stats--compact{grid-template-columns:1fr 1fr}
+  .products-suite-head{flex-wrap:wrap}
+  .products-suite-head .secondary-btn{margin-inline-start:0;width:100%}
+}

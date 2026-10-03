@@ -257,16 +257,22 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
       </div>
       )}
       {embedded && (
-        <div className="panel-heading" style={{ marginBottom: 14 }}>
+        <div className="products-suite-head">
+          <div className="products-suite-mark" aria-hidden>
+            <IconBoxes size={22} />
+          </div>
           <div>
             <h2>المنتجات والأصناف</h2>
-            <p>أضف منتجات هنا لتظهر في المبيعات والمشتريات والمخزون — بدون الحاجة لفاتورة وارد أولًا.</p>
+            <p>أضف صنفًا بالاسم والباركود والسعر — يظهر فورًا في المبيعات والمشتريات والمخزون.</p>
           </div>
-          <button className="secondary-btn small" type="button" onClick={() => void refresh()}>تحديث</button>
+          <button className="secondary-btn small" type="button" onClick={() => void refresh()}>
+            <IconRefresh size={14} />
+            <span>تحديث</span>
+          </button>
         </div>
       )}
 
-      <div className="pur-stats">
+      <div className={`pur-stats${embedded ? ' pur-stats--compact' : ''}`}>
         <div className="pur-stat">
           <span className="pur-stat-icon"><IconBoxes size={18} /></span>
           <div>
@@ -297,6 +303,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
       </div>
 
+      {!embedded && (
       <div className="pur-tabs" role="tablist">
         <button type="button" className={pageTab === 'products' ? 'active' : ''} onClick={() => setPageTab('products')}>
           <IconBoxes size={16} /><span>المنتجات</span>
@@ -305,6 +312,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
           <IconPackage size={16} /><span>تسوية رصيد</span>
         </button>
       </div>
+      )}
 
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
       {error && <div className="purchase-notice" role="alert">{error}</div>}
@@ -312,11 +320,11 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
 
       {pageTab === 'products' && !loading && (
         <>
-          <section className="purchase-panel pur-invoice">
+          <section className={`purchase-panel pur-invoice${embedded ? ' product-form-card' : ''}`}>
             <div className="panel-heading">
               <div>
                 <h2>{editId ? 'تعديل منتج' : 'إضافة منتج جديد'}</h2>
-                <p>يمكن إضافة صنف يدويًا دون فاتورة وارد. الكمية تزداد عند الشراء أو التسوية.</p>
+                <p>{embedded ? 'الحقول الأساسية كافية للبدء — يمكن تعديلها لاحقًا من المخزون.' : 'يمكن إضافة صنف يدويًا دون فاتورة وارد. الكمية تزداد عند الشراء أو التسوية.'}</p>
               </div>
               {editId && (
                 <button className="secondary-btn small" type="button" onClick={startCreate}>
