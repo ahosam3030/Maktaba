@@ -315,6 +315,18 @@ export function App() {
 
   return (
     <div className={`app-shell${sidebarOpen ? "" : " app-shell--sidebar-collapsed"}`}>
+    <button
+      type="button"
+      className="sidebar-reopen-fab"
+      onClick={toggleSidebar}
+      title="إظهار القائمة"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+      القائمة
+    </button>
+
       <aside className={`sidebar${sidebarOpen ? "" : " sidebar--collapsed"}`} aria-hidden={!sidebarOpen}>
         <button
           type="button"
@@ -416,6 +428,7 @@ export function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
+            <span className="sidebar-toggle-btn__label">{sidebarOpen ? 'إخفاء' : 'القائمة'}</span>
           </button>
           <h1 className="page-title">
             {activeSection === 'dashboard'
