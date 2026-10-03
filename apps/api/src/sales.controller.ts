@@ -173,6 +173,23 @@ export class SalesController {
             },
           });
         }
+
+        // قيد خزينة تلقائي بالمبلغ المحصّل (إن وُجد)
+        if (paidAmount > 0) {
+          await tx.cashTransaction.create({
+            data: {
+              organizationId: user.organizationId,
+              userId: user.userId,
+              kind: 'INCOME',
+              date,
+              category: 'مبيعات',
+              amount: new Prisma.Decimal(paidAmount),
+              method: 'CASH',
+              reference: `SALE:${sale.id}`,
+              notes: `تحصيل فاتورة بيع ${invoiceNumber}`,
+            },
+          });
+        }
         return sale;
       });
     } catch (error: unknown) {
@@ -207,6 +224,9 @@ export class SalesController {
           },
         });
       }
+      await tx.cashTransaction.deleteMany({
+        where: { organizationId: user.organizationId, reference: `SALE:${sale.id}` },
+      });
       await tx.saleItem.deleteMany({ where: { saleId: sale.id } });
       await tx.sale.delete({ where: { id: sale.id } });
       return { ok: true, invoiceNumber: sale.invoiceNumber };

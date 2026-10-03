@@ -18,7 +18,7 @@ const SALE_UNITS = ['قطعة', 'ورقة', 'نسخة', 'علبة', 'دستة', 
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
-  items: Array<{ id: string; productName: string; quantity: number | string; unitPrice: number | string; lineTotal: number | string }>;
+  items: Array<{ id: string; productName: string; quantity: number | string; unitPrice: number | string; unitCost?: number | string; lineTotal: number | string }>;
 };
 const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const qty = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 3 });
@@ -48,6 +48,7 @@ export function Sales() {
   const [customerName, setCustomerName] = useState('');
   const [discount, setDiscount] = useState('0');
   const [paidAmount, setPaidAmount] = useState('');
+  const [saleSearch, setSaleSearch] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -93,6 +94,33 @@ export function Sales() {
   const total = Math.max(0, subtotal - discountValue);
   const paidN = paidAmount.trim() === '' ? total : Math.max(0, Number(paidAmount) || 0);
   const remaining = Math.max(0, total - paidN);
+
+  const cartProfit = useMemo(() => cart.reduce((sum, line) => {
+    if (!line.query?.trim() && !line.productId) return sum;
+    const q = Math.max(0, Number(line.quantity) || 0);
+    const price = Math.max(0, Number(line.unitPrice) || 0);
+    const cost = line.cost !== '' ? Math.max(0, Number(line.cost) || 0) : 0;
+    return sum + (price - cost) * q;
+  }, 0), [cart]);
+
+  const filteredSales = useMemo(() => {
+    const q = saleSearch.trim().toLowerCase();
+    if (!q) return sales;
+    return sales.filter((s) =>
+      `${s.invoiceNumber} ${s.customerName || ''} ${(s.items || []).map((i) => i.productName).join(' ')}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [sales, saleSearch]);
+
+  const historyProfit = useMemo(() => filteredSales.reduce((sum, sale) => {
+    return sum + (sale.items || []).reduce((s, it) => {
+      const q = Number(it.quantity) || 0;
+      const price = Number(it.unitPrice) || 0;
+      const cost = Number(it.unitCost) || 0;
+      return s + (price - cost) * q;
+    }, 0);
+  }, 0), [filteredSales]);
 
   function addEmptyRow() {
     setCart((old) => [...old, emptyCartLine()]);
@@ -153,18 +181,25 @@ export function Sales() {
   }
 
   function resolveBarcode(key: string, value?: string) {
-    setCart((old) => old.map((line) => {
-      if (line.key !== key) return line;
-      const text = (value !== undefined ? value : line.barcode).trim();
-      if (!text) return line;
-      const p = findProduct(text);
-      if (!p) {
-        setNotice(`لا يوجد صنف بالباركود «${text}».`);
-        return line;
-      }
-      setNotice(`تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`);
-      return applyProductToLine(line, p, text);
-    }));
+    setCart((old) => {
+      let ok = false;
+      const next = old.map((line) => {
+        if (line.key !== key) return line;
+        const text = (value !== undefined ? value : line.barcode).trim();
+        if (!text) return line;
+        const p = findProduct(text);
+        if (!p) {
+          setNotice(`لا يوجد صنف بالباركود «${text}».`);
+          return line;
+        }
+        ok = true;
+        setNotice(`تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`);
+        return applyProductToLine(line, p, text);
+      });
+      if (!ok) return next;
+      const hasEmpty = next.some((l) => !l.productId && !l.query.trim() && !l.barcode.trim());
+      return hasEmpty ? next : [...next, emptyCartLine()];
+    });
   }
 
   function resolveProductLine(key: string, value?: string) {
@@ -689,7 +724,7 @@ export function Sales() {
           })),
         }),
       });
-      setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber} بنجاح.`);
+      setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber}` + (paid > 0 ? ' وتسجيل التحصيل في الخزينة.' : '.'));
       await refresh();
       if (andPrint) printSale(sale);
     } catch (e) { setNotice(e instanceof Error ? e.message : 'تعذر حفظ فاتورة البيع.'); }
@@ -748,9 +783,10 @@ export function Sales() {
       {error && <div className="purchase-notice" role="alert">{error} — تأكد من تسجيل الدخول وتشغيل الخادم.</div>}
 
       <section className="stats-grid">
-        <article className="stat-card"><span>عدد فواتير البيع المعروضة</span><strong>{sales.length}</strong></article>
-        <article className="stat-card"><span>إجمالي قيمة الفواتير</span><strong>{money(sales.reduce((sum, sale) => sum + Number(sale.total), 0))}</strong></article>
-        <article className="stat-card"><span>المبالغ المتبقية</span><strong>{money(sales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0))}</strong></article>
+        <article className="stat-card"><span>عدد فواتير البيع</span><strong>{filteredSales.length}</strong></article>
+        <article className="stat-card"><span>إجمالي قيمة الفواتير</span><strong>{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0))}</strong></article>
+        <article className="stat-card"><span>المبالغ المتبقية</span><strong>{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0))}</strong></article>
+        <article className="stat-card"><span>مكسب تقديري (المعروض)</span><strong style={{ color: historyProfit >= 0 ? '#0a7a4b' : '#b42318' }}>{money(historyProfit)}</strong></article>
       </section>
 
       <section className="purchase-panel">
@@ -923,12 +959,16 @@ export function Sales() {
               <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </label>
             <label>المدفوع (ج)
-              <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0" />
+              <input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="فارغ = كامل المبلغ" />
             </label>
+            <button className="secondary-btn small" type="button" style={{ alignSelf: 'end' }} onClick={() => setPaidAmount(String(total))}>
+              دفع كامل
+            </button>
           </div>
           <div className="sale-summary">
             <div>الصافي: <strong>{money(total)}</strong></div>
             <div>المتبقي: <strong>{money(remaining)}</strong></div>
+            <div>مكسب تقديري: <strong style={{ color: cartProfit >= 0 ? '#0a7a4b' : '#b42318' }}>{money(cartProfit)}</strong></div>
           </div>
         </div>
 
@@ -948,8 +988,14 @@ export function Sales() {
         <div className="panel-heading">
           <div>
             <h2>سجل فواتير البيع</h2>
-            <p>أحدث 300 فاتورة. الحذف يعيد رصيد البضاعة للمخزون.</p>
+            <p>الحذف يعيد رصيد البضاعة ويلغي قيد التحصيل من الخزينة إن وُجد.</p>
           </div>
+          <input
+            style={{ maxWidth: 280 }}
+            placeholder="بحث: رقم فاتورة / عميل / صنف"
+            value={saleSearch}
+            onChange={(e) => setSaleSearch(e.target.value)}
+          />
         </div>
         {loading ? <div className="empty-state">جارٍ تحميل الفواتير...</div> : (
           <div className="table-wrap">
@@ -962,11 +1008,17 @@ export function Sales() {
                   <th>الإجمالي</th>
                   <th>المدفوع</th>
                   <th>المتبقي</th>
+                  <th>مكسب تقديري</th>
                   <th>إجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {sales.map((sale) => (
+                {filteredSales.map((sale) => {
+                  const estProfit = (sale.items || []).reduce(
+                    (s, it) => s + (Number(it.unitPrice) - Number(it.unitCost || 0)) * Number(it.quantity),
+                    0,
+                  );
+                  return (
                   <tr key={sale.id}>
                     <td>{sale.invoiceNumber}</td>
                     <td>{new Date(sale.saleDate).toLocaleDateString('ar-EG')}</td>
@@ -974,6 +1026,7 @@ export function Sales() {
                     <td>{money(Number(sale.total))}</td>
                     <td>{money(Number(sale.paidAmount))}</td>
                     <td>{money(Number(sale.total) - Number(sale.paidAmount))}</td>
+                    <td style={{ color: estProfit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 600 }}>{money(estProfit)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="secondary-btn small" type="button" onClick={() => printSale(sale)}>طباعة</button>
@@ -988,10 +1041,11 @@ export function Sales() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
-            {sales.length === 0 && <div className="empty-state">لا توجد فواتير بيع حتى الآن.</div>}
+            {filteredSales.length === 0 && <div className="empty-state">لا توجد فواتير مطابقة.</div>}
           </div>
         )}
       </section>
