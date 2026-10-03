@@ -1,9 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
 
-type InventoryItem = { id: string; name: string; barcode?: string | null; unit: string; piecesPerPack: number; currentCost: number; salePrice: number; purchased: number; returned: number; sold: number; adjusted: number; stock: number };
+type InventoryItem = {
+  id: string;
+  name: string;
+  barcode?: string | null;
+  unit: string;
+  piecesPerPack: number;
+  currentCost: number;
+  salePrice: number;
+  purchased: number;
+  returned: number;
+  sold: number;
+  adjusted: number;
+  stock: number;
+};
+
 const qty = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 3 });
-const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const money = (n: number) =>
+  `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -15,51 +30,375 @@ export function Inventory() {
   const [reason, setReason] = useState('جرد فعلي');
   const [notes, setNotes] = useState('');
   const [notice, setNotice] = useState('');
-  const [salePriceEdit, setSalePriceEdit] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // edit form
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBarcode, setEditBarcode] = useState('');
+  const [editCost, setEditCost] = useState('');
+  const [editSale, setEditSale] = useState('');
+  const [editPpp, setEditPpp] = useState('1');
 
   const refresh = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const result = await apiRequest<InventoryItem[]>('/inventory');
       setItems(result);
-      setProductId((current) => current && result.some((item) => item.id === current) ? current : result[0]?.id || '');
-    } catch (e) { setError(e instanceof Error ? e.message : 'تعذر تحميل المخزون.'); }
-    finally { setLoading(false); }
+      setProductId((current) =>
+        current && result.some((item) => item.id === current) ? current : result[0]?.id || '',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذر تحميل المخزون.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { void refresh(); }, [refresh]);
 
-  async function saveSalePrice() {
-    const price = Number(salePriceEdit);
-    if (!productId || !Number.isFinite(price) || price < 0) { setNotice('اختر الصنف وأدخل سعر بيع صحيح.'); return; }
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (i) => i.name.toLowerCase().includes(q) || (i.barcode || '').toLowerCase().includes(q),
+    );
+  }, [items, query]);
+
+  const totals = useMemo(() => {
+    const units = items.reduce((s, i) => s + i.stock, 0);
+    const negative = items.filter((i) => i.stock < 0).length;
+    const value = items.reduce((s, i) => s + Math.max(0, i.stock) * (Number(i.currentCost) || 0), 0);
+    return { units, negative, value, count: items.length };
+  }, [items]);
+
+  function startEdit(item: InventoryItem) {
+    setEditId(item.id);
+    setEditName(item.name);
+    setEditBarcode(item.barcode || '');
+    setEditCost(String(item.currentCost ?? 0));
+    setEditSale(String(item.salePrice ?? 0));
+    setEditPpp(String(item.piecesPerPack || 1));
+    setNotice(`تعديل «${item.name}»`);
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setNotice('');
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    setBusy(true);
+    setNotice('');
     try {
-      await apiRequest(`/inventory/products/${productId}`, { method: 'PATCH', body: JSON.stringify({ salePrice: price }) });
-      setNotice('تم تحديث سعر البيع.'); setSalePriceEdit(''); await refresh();
-    } catch (e) { setNotice(e instanceof Error ? e.message : 'تعذر تحديث سعر البيع.'); }
+      await apiRequest(`/inventory/products/${editId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editName.trim(),
+          barcode: editBarcode.trim(),
+          currentCost: Number(editCost),
+          salePrice: Number(editSale),
+          piecesPerPack: Number(editPpp),
+        }),
+      });
+      setNotice('تم حفظ بيانات الصنف.');
+      setEditId(null);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حفظ الصنف.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteProduct(item: InventoryItem) {
+    if (
+      !confirm(
+        `حذف الصنف «${item.name}»؟\nيُسمح فقط إن لم يكن مربوطًا بفواتير وارد/مبيعات/مرتجعات.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiRequest(`/inventory/products/${item.id}`, { method: 'DELETE' });
+      setNotice(`تم حذف «${item.name}».`);
+      if (editId === item.id) setEditId(null);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حذف الصنف.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveAdjustment() {
     const amount = Number(quantity);
-    if (!productId || !Number.isFinite(amount) || amount === 0 || !reason.trim()) { setNotice('اختر الصنف وأدخل كمية تعديل غير صفرية وسبب التعديل.'); return; }
+    if (!productId || !Number.isFinite(amount) || amount === 0 || !reason.trim()) {
+      setNotice('اختر الصنف وأدخل كمية تعديل غير صفرية وسببًا.');
+      return;
+    }
+    setBusy(true);
     try {
-      await apiRequest('/inventory/adjustments', { method: 'POST', body: JSON.stringify({ productId, quantity: amount, reason: reason.trim(), notes: notes.trim() || undefined }) });
-      setNotice('تم حفظ حركة التسوية.'); setQuantity(''); setNotes(''); await refresh();
-    } catch (e) { setNotice(e instanceof Error ? e.message : 'تعذر حفظ التسوية.'); }
+      await apiRequest('/inventory/adjustments', {
+        method: 'POST',
+        body: JSON.stringify({
+          productId,
+          quantity: amount,
+          reason: reason.trim(),
+          notes: notes.trim() || undefined,
+        }),
+      });
+      setNotice('تم حفظ تسوية الجرد.');
+      setQuantity('');
+      setNotes('');
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حفظ التسوية.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const filtered = items.filter((item) => `${item.name} ${item.barcode || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const totalUnits = items.reduce((sum, item) => sum + item.stock, 0);
-  return <div className="purchases-page">
-    <div className="purchase-title"><div><span className="eyebrow">إدارة الأصناف</span><h1>المخزون</h1><p>الرصيد محسوب من فواتير الوارد والمرتجعات وتسويات الجرد المسجلة على الخادم.</p></div><button className="secondary-btn" onClick={() => void refresh()}>تحديث البيانات</button></div>
-    {notice && <div className="purchase-notice" role="status">{notice}</div>}
-    {error && <div className="purchase-notice" role="alert">{error} — تأكد من تسجيل الدخول وتشغيل الخادم.</div>}
-    <section className="stats-grid"><article className="stat-card"><span>عدد الأصناف</span><strong>{items.length}</strong></article><article className="stat-card"><span>إجمالي الرصيد بالوحدات الأساسية</span><strong>{qty(totalUnits)}</strong></article><article className="stat-card"><span>أصناف رصيدها صفر أو أقل</span><strong>{items.filter((item) => item.stock <= 0).length}</strong></article></section>
-    <section className="purchase-panel"><div className="panel-heading"><div><h2>تسوية جرد</h2><p>الكمية الموجبة تزيد الرصيد والسالبة تخصم منه. تُسجّل بالوحدة الأساسية (قطعة).</p></div></div>
-      <div className="inline-form"><label>الصنف<select value={productId} onChange={(e) => setProductId(e.target.value)}><option value="">اختر الصنف</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name} — الرصيد {qty(item.stock)}</option>)}</select></label><label>كمية التعديل<input type="number" step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="مثال: 5 أو -2" /></label><label>سبب التعديل<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="جرد فعلي / تالف / تسوية" /></label><label>ملاحظات<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="اختياري" /></label><button className="primary-btn" onClick={() => void saveAdjustment()}>حفظ التسوية</button></div>
-      <div className="inline-form" style={{marginTop:12}}><label>سعر البيع (للصنف المحدد)<input type="number" min="0" step="0.01" value={salePriceEdit} onChange={(e)=>setSalePriceEdit(e.target.value)} placeholder="0.00" /></label><button className="secondary-btn" type="button" onClick={() => void saveSalePrice()}>تحديث سعر البيع</button></div>
-    </section>
-    <section className="purchase-panel"><div className="panel-heading"><div><h2>أرصدة الأصناف</h2><p>تُعرض بيانات المكتبة المسجّل دخولها فقط.</p></div><span className="count-badge">{filtered.length}</span></div><input className="search-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ابحث باسم الصنف أو الباركود" />
-      {loading ? <div className="empty-state">جارٍ تحميل المخزون...</div> : <div className="table-wrap"><table><thead><tr><th>الصنف</th><th>الباركود</th><th>الوارد (قطعة)</th><th>المرتجع (قطعة)</th><th>المباع (قطعة)</th><th>تسويات الجرد</th><th>الرصيد الحالي</th><th>آخر تكلفة</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id}><td>{item.name}</td><td dir="ltr">{item.barcode || '—'}</td><td>{qty(item.purchased)}</td><td>{qty(item.returned)}</td><td>{qty(item.sold)}</td><td>{qty(item.adjusted)}</td><td><strong>{qty(item.stock)}</strong></td><td>{money(item.currentCost)}</td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty-state">لا توجد أصناف لعرضها. سجّل فواتير وارد بعد تسجيل الدخول أولًا.</div>}</div>}
-    </section>
-    <p className="purchase-footnote">تنبيه: هذه شاشة أولية للمخزون. لم تُربط شاشة فواتير الوارد المحلية بالخادم بعد؛ لذلك لن تظهر الفواتير المحفوظة في المتصفح هنا تلقائيًا. لا تعتمد عليها في الجرد التجاري قبل إتمام الربط والاختبارات.</p>
-  </div>;
+  async function repairBalances() {
+    if (
+      !confirm(
+        'إصلاح الأرصدة: حذف تسويات «حذف فاتورة وارد» القديمة التي كانت تخصم المخزون مرتين؟',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiRequest<{ deletedMovements: number }>(
+        '/inventory/repair-purchase-delete-adjustments',
+        { method: 'POST', body: '{}' },
+      );
+      setNotice(`تم إصلاح الأرصدة. حركات محذوفة: ${res.deletedMovements}`);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر إصلاح الأرصدة.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="purchases-page">
+      <div className="purchase-title">
+        <div>
+          <span className="eyebrow">إدارة الأصناف</span>
+          <h1>المخزون</h1>
+          <p>
+            الرصيد = وارد (فواتير المشتريات) − مرتجعات − مبيعات ± تسويات الجرد. مرتبط مباشرة بفواتير
+            الوارد على الخادم.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="secondary-btn" type="button" disabled={busy} onClick={() => void repairBalances()}>
+            إصلاح الأرصدة
+          </button>
+          <button className="secondary-btn" type="button" onClick={() => void refresh()}>
+            تحديث البيانات
+          </button>
+        </div>
+      </div>
+
+      {notice && (
+        <div className="purchase-notice" role="status">
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div className="purchase-notice" role="alert">
+          {error}
+        </div>
+      )}
+
+      <section className="stats-grid">
+        <article className="stat-card">
+          <span>عدد الأصناف</span>
+          <strong>{totals.count}</strong>
+        </article>
+        <article className="stat-card">
+          <span>إجمالي الرصيد (قطعة)</span>
+          <strong style={{ color: totals.units < 0 ? '#b42318' : undefined }}>{qty(totals.units)}</strong>
+        </article>
+        <article className="stat-card">
+          <span>أصناف رصيدها سالب</span>
+          <strong style={{ color: totals.negative ? '#b42318' : undefined }}>{totals.negative}</strong>
+        </article>
+        <article className="stat-card">
+          <span>قيمة المخزون (تكلفة)</span>
+          <strong>{money(totals.value)}</strong>
+        </article>
+      </section>
+
+      {editId && (
+        <section className="purchase-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>تعديل صنف</h2>
+              <p>الاسم، الباركود، التكلفة، وسعر البيع.</p>
+            </div>
+            <button className="secondary-btn small" type="button" onClick={cancelEdit}>
+              إلغاء
+            </button>
+          </div>
+          <div className="inline-form" style={{ flexWrap: 'wrap' }}>
+            <label>
+              الاسم
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </label>
+            <label>
+              الباركود
+              <input value={editBarcode} onChange={(e) => setEditBarcode(e.target.value)} dir="ltr" />
+            </label>
+            <label>
+              تكلفة القطعة
+              <input type="number" min="0" step="0.01" value={editCost} onChange={(e) => setEditCost(e.target.value)} />
+            </label>
+            <label>
+              سعر البيع
+              <input type="number" min="0" step="0.01" value={editSale} onChange={(e) => setEditSale(e.target.value)} />
+            </label>
+            <label>
+              قطع / عبوة
+              <input type="number" min="1" step="1" value={editPpp} onChange={(e) => setEditPpp(e.target.value)} />
+            </label>
+            <button className="primary-btn" type="button" disabled={busy} onClick={() => void saveEdit()}>
+              حفظ الصنف
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section className="purchase-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>تسوية جرد</h2>
+            <p>كمية موجبة تزيد الرصيد وسالبة تنقصه (بالقطعة).</p>
+          </div>
+        </div>
+        <div className="inline-form">
+          <label>
+            الصنف
+            <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">اختر الصنف</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} — الرصيد {qty(item.stock)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            كمية التعديل
+            <input
+              type="number"
+              step="0.001"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="مثال: 5 أو -2"
+            />
+          </label>
+          <label>
+            سبب التعديل
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="جرد فعلي / تالف" />
+          </label>
+          <label>
+            ملاحظات
+            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="اختياري" />
+          </label>
+          <button className="primary-btn" type="button" disabled={busy} onClick={() => void saveAdjustment()}>
+            حفظ التسوية
+          </button>
+        </div>
+      </section>
+
+      <section className="purchase-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>أرصدة الأصناف</h2>
+            <p>الوارد من فواتير المشتريات على الخادم. يمكنك التعديل أو الحذف من الإجراءات.</p>
+          </div>
+          <span className="count-badge">{filtered.length}</span>
+        </div>
+        <input
+          className="search-input"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="ابحث باسم الصنف أو الباركود"
+        />
+        {loading ? (
+          <div className="empty-state">جارٍ تحميل المخزون...</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الصنف</th>
+                  <th>الباركود</th>
+                  <th>الوارد</th>
+                  <th>المرتجع</th>
+                  <th>المباع</th>
+                  <th>تسويات</th>
+                  <th>الرصيد</th>
+                  <th>التكلفة</th>
+                  <th>سعر البيع</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.name}</td>
+                    <td dir="ltr">{item.barcode || '—'}</td>
+                    <td>{qty(item.purchased)}</td>
+                    <td>{qty(item.returned)}</td>
+                    <td>{qty(item.sold)}</td>
+                    <td>{qty(item.adjusted)}</td>
+                    <td>
+                      <strong style={{ color: item.stock < 0 ? '#b42318' : '#0a7a4b' }}>
+                        {qty(item.stock)}
+                      </strong>
+                    </td>
+                    <td>{money(item.currentCost)}</td>
+                    <td>{money(item.salePrice)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="secondary-btn small" type="button" onClick={() => startEdit(item)}>
+                          تعديل
+                        </button>
+                        <button
+                          className="danger-outline-btn"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void deleteProduct(item)}
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="empty-state">لا توجد أصناف. سجّل فاتورة وارد من المشتريات أولًا.</div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <p className="purchase-footnote">
+        إذا ظهر رصيد سالب بعد حذف فواتير وارد قديمة، اضغط «إصلاح الأرصدة» مرة واحدة. المبيعات تبقى مخصومة من
+        الرصيد بشكل طبيعي.
+      </p>
+    </div>
+  );
 }

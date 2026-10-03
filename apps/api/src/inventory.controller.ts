@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
@@ -83,7 +83,7 @@ export class InventoryController {
   async updateProduct(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
-    @Body() body: { salePrice?: number; barcode?: string },
+    @Body() body: { salePrice?: number; barcode?: string; name?: string; currentCost?: number; piecesPerPack?: number },
   ) {
     const product = await this.prisma.product.findFirst({ where: { id, organizationId: user.organizationId } });
     if (!product) throw new BadRequestException('الصنف غير موجود في مكتبتك.');
@@ -93,11 +93,74 @@ export class InventoryController {
       if (!Number.isFinite(price) || price < 0) throw new BadRequestException('سعر البيع غير صحيح.');
       data.salePrice = price;
     }
+    if (body.currentCost !== undefined) {
+      const cost = Number(body.currentCost);
+      if (!Number.isFinite(cost) || cost < 0) throw new BadRequestException('التكلفة غير صحيحة.');
+      data.currentCost = cost;
+    }
     if (body.barcode !== undefined) {
       data.barcode = body.barcode.trim() || null;
     }
+    if (body.name !== undefined) {
+      const name = body.name.trim();
+      if (!name) throw new BadRequestException('اسم الصنف مطلوب.');
+      data.name = name;
+    }
+    if (body.piecesPerPack !== undefined) {
+      const ppp = Math.floor(Number(body.piecesPerPack));
+      if (!Number.isFinite(ppp) || ppp < 1) throw new BadRequestException('عدد القطع في العبوة غير صحيح.');
+      data.piecesPerPack = ppp;
+    }
     if (Object.keys(data).length === 0) throw new BadRequestException('لا توجد حقول لتحديثها.');
-    return this.prisma.product.update({ where: { id }, data });
+    try {
+      return await this.prisma.product.update({ where: { id }, data });
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
+        throw new BadRequestException('اسم الصنف مستخدم بالفعل في مكتبتك.');
+      }
+      throw error;
+    }
+  }
+
+  @Delete('products/:id')
+  async deleteProduct(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, organizationId: user.organizationId },
+      include: {
+        _count: {
+          select: { purchaseItems: true, saleItems: true, returnItems: true, stockMovements: true },
+        },
+      },
+    });
+    if (!product) throw new BadRequestException('الصنف غير موجود في مكتبتك.');
+    const linked =
+      product._count.purchaseItems + product._count.saleItems + product._count.returnItems;
+    if (linked > 0) {
+      throw new BadRequestException(
+        'لا يمكن حذف صنف مرتبط بفواتير وارد أو مبيعات أو مرتجعات. احذف الفواتير المرتبطة أولًا أو عطّل استخدامه.',
+      );
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.stockMovement.deleteMany({ where: { productId: id, organizationId: user.organizationId } });
+      await tx.product.delete({ where: { id } });
+    });
+    return { ok: true, id, name: product.name };
+  }
+
+  /** إزالة تسويات «حذف فاتورة وارد» القديمة التي كانت تخصم الرصيد مرتين */
+  @Post('repair-purchase-delete-adjustments')
+  async repairPurchaseDeleteAdjustments(@CurrentUser() user: AuthUser) {
+    const result = await this.prisma.stockMovement.deleteMany({
+      where: {
+        organizationId: user.organizationId,
+        type: 'ADJUSTMENT',
+        OR: [
+          { reason: { startsWith: 'حذف فاتورة وارد' } },
+          { notes: { startsWith: 'إلغاء كميات فاتورة الوارد' } },
+        ],
+      },
+    });
+    return { deletedMovements: result.count };
   }
 
   private async currentStockTx(tx: Prisma.TransactionClient, organizationId: string, productId: string) {

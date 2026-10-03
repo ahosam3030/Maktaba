@@ -170,25 +170,8 @@ export class PurchaseInvoicesController {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // خصم الكميات اللي دخلت المخزون من الفاتورة
-      for (const item of invoice.items) {
-        const pieces =
-          item.unit === 'PACK'
-            ? Number(item.quantity) * item.piecesPerPack
-            : Number(item.quantity);
-        if (pieces > 0) {
-          await tx.stockMovement.create({
-            data: {
-              organizationId: user.organizationId,
-              productId: item.productId,
-              quantity: new Prisma.Decimal(-pieces),
-              type: 'ADJUSTMENT',
-              reason: `حذف فاتورة وارد ${invoice.invoiceNumber}`,
-              notes: `إلغاء كميات فاتورة الوارد ${invoice.invoiceNumber}`,
-            },
-          });
-        }
-      }
+      // الرصيد يُحسب من بنود فواتير الوارد مباشرة.
+      // لا ننشئ حركة مخزون سالبة عند الحذف وإلا يُخصم الرصيد مرتين (بعد اختفاء البنود).
       await tx.supplierPayment.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.purchaseInvoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.purchaseInvoice.delete({ where: { id: invoice.id } });
