@@ -4471,3 +4471,38 @@ aside.sidebar.sidebar--collapsed {
 .topbar-sub {
   color: var(--color-text-muted) !important;
 }
+
+
+/* ترحيب واضح على البانر */
+.welcome-greeting {
+  margin: 0 0 10px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* شريط تحميل خفيف أثناء فحص الاتصال فقط */
+.app-top-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  background: transparent;
+  pointer-events: none;
+}
+.app-top-progress.is-active {
+  background: linear-gradient(90deg, transparent, #14b8a6, #0f766e, #14b8a6, transparent);
+  background-size: 200% 100%;
+  animation: maktaba-progress 1.1s linear infinite;
+}
+@keyframes maktaba-progress {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

@@ -414,6 +414,11 @@ export function App() {
   }
 
   return (
+    <>
+    <div
+      className={`app-top-progress${connection === 'checking' ? ' is-active' : ''}`}
+      aria-hidden
+    />
     <div className={`app-shell${sidebarOpen ? "" : " app-shell--sidebar-collapsed"}`}>
       <aside className={`sidebar${sidebarOpen ? "" : " sidebar--collapsed"}`} aria-hidden={!sidebarOpen}>
         <div className="brand">
@@ -589,7 +594,7 @@ export function App() {
 
             <section className="welcome-banner">
               <div className="welcome-banner-text">
-                <p className="eyebrow">{greeting} · لوحة التحكم</p>
+                <p className="welcome-greeting">{greeting} · لوحة التحكم</p>
                 <h2>{sessionUser?.fullName}</h2>
                 <p className="welcome-sub">
                   {sessionOrg?.name}
@@ -650,5 +655,6 @@ export function App() {
         ) : null}
       </main>
     </div>
+    </>
   );
 }
