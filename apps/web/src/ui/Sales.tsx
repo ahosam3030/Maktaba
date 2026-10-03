@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { apiRequest } from '../data/api';
 import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
@@ -58,6 +58,11 @@ export function Sales() {
     stock: null,
   });
   const [cart, setCart] = useState<CartLine[]>(() => [emptyCartLine(), emptyCartLine(), emptyCartLine()]);
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
+
+
+
   const [invoiceNumber, setInvoiceNumber] = useState('1');
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerName, setCustomerName] = useState('');
@@ -159,7 +164,11 @@ export function Sales() {
   function findProduct(raw: string): Product | undefined {
     const q = raw.trim().toLowerCase();
     if (!q) return undefined;
-    const byBarcode = products.find((p) => (p.barcode || '').trim().toLowerCase() === q);
+    const qBc = q.replace(/\s+/g, '');
+    const byBarcode = products.find((p) => {
+      const pb = (p.barcode || '').trim().toLowerCase().replace(/\s+/g, '');
+      return pb && (pb === q || pb === qBc);
+    });
     if (byBarcode) return byBarcode;
     const exactName = products.find((p) => p.name.trim().toLowerCase() === q);
     if (exactName) return exactName;
@@ -226,6 +235,71 @@ export function Sales() {
       return hasEmpty ? next : [...next, emptyCartLine()];
     });
   }
+
+
+  const resolveBarcodeRef = useRef(resolveBarcode);
+  resolveBarcodeRef.current = resolveBarcode;
+  const onBarcodeChangeRef = useRef(onBarcodeChange);
+  onBarcodeChangeRef.current = onBarcodeChange;
+
+  useEffect(() => {
+    let buffer = '';
+    let lastTs = 0;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const now = Date.now();
+      const gap = now - lastTs;
+      lastTs = now;
+
+      // منع اختصارات المتصفح أثناء رشقة الماسح (Ctrl/Meta/Alt)
+      if (gap < 55 && (e.ctrlKey || e.metaKey || e.altKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        const code = buffer.trim();
+        buffer = '';
+        if (code.length >= 4 && gap < 120) {
+          e.preventDefault();
+          e.stopPropagation();
+          const lines = cartRef.current;
+          const active =
+            (document.activeElement as HTMLElement | null)?.getAttribute?.('data-line-key') ||
+            lines.find((l) => !l.productId && !String(l.query || '').trim())?.key ||
+            lines[0]?.key;
+          if (active) {
+            onBarcodeChangeRef.current(active, code);
+            resolveBarcodeRef.current(active, code);
+            requestAnimationFrame(() => {
+              const qtyInput = document.querySelector(
+                `input[data-line-key="${active}"][data-field="quantity"]`,
+              ) as HTMLInputElement | null;
+              qtyInput?.focus();
+              qtyInput?.select();
+            });
+          }
+        }
+        return;
+      }
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (gap > 90) buffer = '';
+        buffer += e.key;
+        const target = e.target as HTMLElement | null;
+        const tag = (target?.tagName || '').toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select';
+        if (gap < 50 && !isEditable) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, []);
 
   function resolveProductLine(key: string, value?: string) {
     setCart((old) => old.map((line) => {
@@ -983,12 +1057,24 @@ function printDraft() {
                       <input
                         placeholder="باركود"
                         value={line.barcode}
+                        dir="ltr"
+                        inputMode="numeric"
+                        data-line-key={line.key}
+                        data-field="barcode"
                         onChange={(e) => onBarcodeChange(line.key, e.target.value)}
                         onBlur={(e) => resolveBarcode(line.key, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
+                            e.stopPropagation();
                             resolveBarcode(line.key, (e.target as HTMLInputElement).value);
+                            requestAnimationFrame(() => {
+                              const qtyInput = document.querySelector(
+                                `input[data-line-key="${line.key}"][data-field="quantity"]`,
+                              ) as HTMLInputElement | null;
+                              qtyInput?.focus();
+                              qtyInput?.select();
+                            });
                           }
                         }}
                         autoComplete="off"
@@ -1036,6 +1122,8 @@ function printDraft() {
                         type="number"
                         min="0"
                         step="0.001"
+                        data-line-key={line.key}
+                        data-field="quantity"
                         value={line.quantity}
                         onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
                         style={{ borderColor: overStock ? '#d6455d' : undefined }}
