@@ -10,6 +10,7 @@ type Invoice = {
   id: string; invoiceNumber: string; invoiceDate: string; supplierId: string;
   supplier?: { id: string; name: string }; items: InvoiceItem[];
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string; notes?: string | null;
+  returns?: unknown[];
 };
 type Payment = { id: string; supplierId: string; amount: number | string; paymentDate: string; method: string; supplier?: { name: string } };
 type PurchaseReturn = { id: string; invoiceId: string; total: number | string; returnDate: string; items: Array<{ productId: string; quantity: number | string }> };
@@ -82,6 +83,8 @@ export function Purchases() {
   const [paid, setPaid] = useState('0');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [productReportQuery, setProductReportQuery] = useState('');
   const [productReportUnit, setProductReportUnit] = useState<'ALL' | 'PIECE' | 'PACK'>('ALL');
 
@@ -146,6 +149,73 @@ export function Purchases() {
     setDiscount('0');
     setNotes('');
     setNotice('');
+    setEditingInvoiceId(null);
+  }
+
+  function unitLabelFromApi(unit: string): string {
+    return unit === 'PACK' ? 'علبة' : 'قطعة';
+  }
+
+  function startEditInvoice(invoice: Invoice) {
+    if (invoice.returns && (invoice.returns as unknown[]).length > 0) {
+      setNotice('تنبيه: الفاتورة عليها مرتجعات. التعديل قد يحتاج مراجعة يدوية.');
+    }
+    setEditingInvoiceId(invoice.id);
+    setSupplierName(invoice.supplier?.name || '');
+    setInvoiceNo(invoice.invoiceNumber);
+    setDate(String(invoice.invoiceDate).slice(0, 10));
+    setDiscount(String(num(invoice.discount)));
+    setPaid(String(num(invoice.paidAmount)));
+    setNotes(invoice.notes || '');
+    const mapped = (invoice.items || []).map((it) => {
+      const cat = catalog.find((p) => p.id === it.productId);
+      return {
+        key: newDraftKey(),
+        barcode: cat?.barcode || '',
+        productName: it.productName,
+        unitLabel: unitLabelFromApi(it.unit),
+        quantity: String(num(it.quantity)),
+        piecesPerPack: String(it.piecesPerPack || 1),
+        unitCost: String(num(it.unitCost)),
+        salePrice: cat && cat.salePrice > 0 ? String(cat.salePrice) : '',
+        productId: it.productId,
+        stock: cat ? cat.stock : null,
+      };
+    });
+    setLines(mapped.length ? mapped : [emptyDraftLine()]);
+    setNotice(`جارٍ تعديل الفاتورة ${invoice.invoiceNumber}. احفظ لتطبيق التعديل على المخزون.`);
+    try {
+      document.getElementById('purchase-invoice-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((old) => (old.includes(id) ? old.filter((x) => x !== id) : [...old, id]));
+  }
+
+  async function bulkDeleteInvoices() {
+    if (selectedIds.length === 0) {
+      setNotice('حدّد فاتورة واحدة على الأقل.');
+      return;
+    }
+    if (!confirm(`حذف ${selectedIds.length} فاتورة وارد دفعة واحدة؟\nسيتم عكس أثرها على المخزون.`)) return;
+    const ids = [...selectedIds];
+    let ok = 0;
+    let fail = 0;
+    for (const id of ids) {
+      try {
+        await apiRequest(`/purchases/invoices/${id}`, { method: 'DELETE' });
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    setSelectedIds([]);
+    if (editingInvoiceId && ids.includes(editingInvoiceId)) setEditingInvoiceId(null);
+    await refresh();
+    setNotice(fail ? `تم حذف ${ok} وفشل ${fail}.` : `تم حذف ${ok} فاتورة.`);
   }
 
   function nextPurchaseInvoiceNo(): string {
@@ -283,11 +353,15 @@ export function Purchases() {
     }
     const invNo = invoiceNo.trim() || nextPurchaseInvoiceNo();
     const paidN = Math.min(total, Math.max(0, Number(paid) || 0));
+    const wasEditing = Boolean(editingInvoiceId);
     try {
       const supplier = await apiRequest<Supplier>('/suppliers', {
         method: 'POST',
         body: JSON.stringify({ name: supplierName.trim() }),
       });
+      if (editingInvoiceId) {
+        await apiRequest(`/purchases/invoices/${editingInvoiceId}`, { method: 'DELETE' });
+      }
       const created = await apiRequest<Invoice>('/purchases/invoices', {
         method: 'POST',
         body: JSON.stringify({
@@ -308,9 +382,10 @@ export function Purchases() {
           })),
         }),
       });
-      setNotice(`تم حفظ فاتورة الوارد ${created.invoiceNumber}.`);
+      setNotice(wasEditing ? `تم تحديث فاتورة الوارد ${created.invoiceNumber}.` : `تم حفظ فاتورة الوارد ${created.invoiceNumber}.`);
+      const keepSupplier = supplierName;
       clearDraft();
-      setSupplierName(supplierName);
+      setSupplierName(keepSupplier);
       await refresh();
       if (andPrint && created?.id) printInvoice(created);
     } catch (e) {
@@ -390,6 +465,13 @@ export function Purchases() {
   const filtered = invoices.filter((i) =>
     `${i.invoiceNumber} ${i.supplier?.name || ''}`.toLowerCase().includes(search.trim().toLowerCase())
   );
+
+  function toggleSelectAllFiltered() {
+    const ids = filtered.map((i) => i.id);
+    const allOn = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+    setSelectedIds(allOn ? selectedIds.filter((id) => !ids.includes(id)) : Array.from(new Set([...selectedIds, ...ids])));
+  }
+
   const selectedInvoice = invoices.find((i) => i.id === returnInvoiceId);
 
   type PricePoint = {
@@ -521,12 +603,19 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
       {error && <div className="purchase-notice" role="alert">{error}</div>}
       {loading && <div className="empty-state">جارٍ التحميل...</div>}
 
-      <section className="purchase-panel">
+      <section className="purchase-panel" id="purchase-invoice-form">
         <div className="panel-heading">
           <div>
-            <h2>فاتورة وارد</h2>
-            <p>امسح الباركود لجلب الصنف والمتبقي وسعر البيع. المكسب = سعر البيع − تكلفة القطعة.</p>
+            <h2>{editingInvoiceId ? 'تعديل فاتورة وارد' : 'فاتورة وارد'}</h2>
+            <p>
+              {editingInvoiceId
+                ? 'عدّل البنود ثم احفظ. سيتم تحديث المخزون تلقائيًا.'
+                : 'امسح الباركود لجلب الصنف والمتبقي وسعر البيع. المكسب = سعر البيع − تكلفة القطعة.'}
+            </p>
           </div>
+          {editingInvoiceId && (
+            <button className="secondary-btn small" type="button" onClick={clearDraft}>إلغاء التعديل</button>
+          )}
         </div>
 
         <div className="sale-meta-row" style={{ gridTemplateColumns: '1.3fr 0.9fr 0.9fr 0.9fr 0.8fr' }}>
@@ -702,8 +791,8 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         </div>
 
         <div className="sale-actions">
-          <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>حفظ الفاتورة</button>
-          <button className="primary-btn" type="button" onClick={() => void saveInvoice(true)}>حفظ وطباعة</button>
+          <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>{editingInvoiceId ? 'حفظ التعديل' : 'حفظ الفاتورة'}</button>
+          <button className="primary-btn" type="button" onClick={() => void saveInvoice(true)}>{editingInvoiceId ? 'حفظ التعديل وطباعة' : 'حفظ وطباعة'}</button>
           <button className="secondary-btn" type="button" onClick={printDraftInvoice}>طباعة (حتى قبل الحفظ)</button>
           <button className="secondary-btn" type="button" onClick={clearDraft}>فاتورة فارغة</button>
         </div>
@@ -904,11 +993,41 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
       </section>
 
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>سجل الفواتير</h2></div><span className="count-badge">{filtered.length}</span></div>
+        <div className="panel-heading">
+          <div><h2>سجل الفواتير</h2></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="count-badge">{filtered.length}</span>
+            <button
+              className="danger-outline-btn small"
+              type="button"
+              disabled={selectedIds.length === 0}
+              onClick={() => void bulkDeleteInvoices()}
+            >
+              حذف المحدد ({selectedIds.length})
+            </button>
+          </div>
+        </div>
         <input className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث برقم الفاتورة أو المورد" />
-        <div className="table-wrap"><table><thead><tr><th>الرقم</th><th>التاريخ</th><th>المورد</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>طباعة</th></tr></thead>
+        <div className="table-wrap"><table><thead><tr>
+          <th style={{ width: 42 }}>
+            <input
+              type="checkbox"
+              title="تحديد الكل (المعروض)"
+              checked={filtered.length > 0 && filtered.every((i) => selectedIds.includes(i.id))}
+              onChange={toggleSelectAllFiltered}
+            />
+          </th>
+          <th>الرقم</th><th>التاريخ</th><th>المورد</th><th>الأصناف</th><th>الإجمالي</th><th>المدفوع</th><th>إجراءات</th>
+        </tr></thead>
           <tbody>{filtered.map((i) => (
-            <tr key={i.id}>
+            <tr key={i.id} style={{ background: editingInvoiceId === i.id ? '#f0faf6' : undefined }}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(i.id)}
+                  onChange={() => toggleSelect(i.id)}
+                />
+              </td>
               <td>{i.invoiceNumber}</td>
               <td>{String(i.invoiceDate).slice(0, 10)}</td>
               <td>{i.supplier?.name}</td>
@@ -917,6 +1036,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
               <td>{money(num(i.paidAmount))}</td>
               <td>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button className="secondary-btn small" type="button" onClick={() => startEditInvoice(i)}>تعديل</button>
                   <button className="secondary-btn small" type="button" onClick={() => printInvoice(i)}>طباعة</button>
                   <button
                     className="danger-outline-btn"
