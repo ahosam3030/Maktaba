@@ -63,6 +63,11 @@ export class CreatePurchaseInvoiceDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  discount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   paidAmount?: number;
 
   @IsOptional()

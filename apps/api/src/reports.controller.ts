@@ -120,6 +120,7 @@ export class ReportsController {
     const unitsInStock = inventory.reduce((s, i) => s + Math.max(0, i.stock), 0);
 
     // --- Period sales & COGS & profit ---
+    const salesCount = sales.length;
     let salesRevenue = 0;
     let salesDiscount = 0;
     let salesNet = 0;
@@ -136,7 +137,7 @@ export class ReportsController {
       const saleSub = Number(sale.subtotal) || 0;
       for (const item of sale.items) {
         const qty = Number(item.quantity) || 0;
-        const returned = Number((item as { returnedQuantity?: number | string }).returnedQuantity || 0);
+        const returned = Number(item.returnedQuantity ?? 0);
         const effectiveQty = Math.max(0, qty - returned);
         cogs += effectiveQty * Number(item.unitCost || 0);
         if (returned > 0) {
