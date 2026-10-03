@@ -315,31 +315,7 @@ export function App() {
 
   return (
     <div className={`app-shell${sidebarOpen ? "" : " app-shell--sidebar-collapsed"}`}>
-    <button
-      type="button"
-      className="sidebar-reopen-fab"
-      onClick={toggleSidebar}
-      title="إظهار القائمة"
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-        <path d="M4 7h16M4 12h16M4 17h16" />
-      </svg>
-      القائمة
-    </button>
-
       <aside className={`sidebar${sidebarOpen ? "" : " sidebar--collapsed"}`} aria-hidden={!sidebarOpen}>
-        <button
-          type="button"
-          className="sidebar-close-btn"
-          tabIndex={-1}
-          title="إخفاء القائمة"
-          aria-label="إخفاء القائمة"
-          onClick={toggleSidebar}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
         <div className="brand">
           <BrandLogo size={46} className="brand-logo" />
           <div className="brand-copy">
@@ -415,18 +391,30 @@ export function App() {
 
       <main className="main-content page-stage" id="dashboard" key={activeSection}>
         <div className="topbar">
+          <div className="topbar-start">
           <button
             type="button"
             className="sidebar-toggle-btn"
-            title={sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}
-            aria-label={sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}
+            title={sidebarOpen ? 'إخفاء القائمة الجانبية' : 'إظهار القائمة الجانبية'}
+            aria-label={sidebarOpen ? 'إخفاء القائمة الجانبية' : 'إظهار القائمة الجانبية'}
             aria-expanded={sidebarOpen}
             onClick={toggleSidebar}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-              <path d="M4 7h16M4 12h16M4 17h16" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+              {sidebarOpen ? (
+                <>
+                  <path d="M4 6h16" />
+                  <path d="M4 12h10" />
+                  <path d="M4 18h16" />
+                </>
+              ) : (
+                <>
+                  <path d="M4 6h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 18h16" />
+                </>
+              )}
             </svg>
-            <span className="sidebar-toggle-btn__label">{sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}</span>
           </button>
           <div className="topbar-titles">
           <h1 className="page-title">
@@ -451,6 +439,7 @@ export function App() {
                               : 'لوحة التحكم'}
           </h1>
           <p className="topbar-sub">{isLoggedIn ? (sessionOrg?.name || 'نظام إدارة المكتبة') : 'أدخل بياناتك للمتابعة'}</p>
+          </div>
           </div>
           <div className="status-pills">
             <span className={`pill ${connection === 'online' ? 'ok' : connection === 'checking' ? 'warn' : 'bad'}`}>

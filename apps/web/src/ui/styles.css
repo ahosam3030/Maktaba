@@ -3220,3 +3220,103 @@ html[dir="rtl"] .sidebar-reopen-fab {
 .topbar > .status-pills {
   margin-inline-start: auto;
 }
+
+/* ===== Professional single sidebar toggle ===== */
+.sidebar-reopen-fab,
+.sidebar-close-btn {
+  display: none !important;
+}
+
+.topbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 22px !important;
+  border-bottom: 1px solid #e6eeef !important;
+}
+
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar .sidebar-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  border: 1px solid #d7e5e3 !important;
+  background: #fff !important;
+  color: #0f766e !important;
+  box-shadow: 0 1px 3px rgba(15, 47, 53, 0.06) !important;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.topbar .sidebar-toggle-btn:hover {
+  background: #f0faf7 !important;
+  border-color: #9fd4c8 !important;
+  color: #0b5f56 !important;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.12) !important;
+}
+.topbar .sidebar-toggle-btn__label {
+  display: none !important;
+}
+
+.topbar-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.topbar .page-title {
+  margin: 0 !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+  color: #14323a !important;
+  line-height: 1.25;
+}
+.topbar-sub {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  color: #6b8086 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+}
+
+.topbar .status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 0 !important;
+}
+
+/* Collapsed sidebar cleaner */
+aside.sidebar.sidebar--collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  pointer-events: none !important;
+  flex: 0 0 0 !important;
+}
+.app-shell--sidebar-collapsed .main-content {
+  width: 100% !important;
+  max-width: none !important;
+}
