@@ -1545,3 +1545,40 @@ input:focus,select:focus,textarea:focus{
   .pur-tabs button span{display:none}
   .pur-tabs button{padding:10px 12px}
 }
+
+/* ===== Sales page extras ===== */
+.sales-page .sale-meta-grid{
+  grid-template-columns:1.4fr 0.9fr 0.9fr;
+}
+.sale-footer .pur-footer-summary{min-width:320px}
+.sale-totals-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.sale-total-item{
+  background:#f4faf8;
+  border:1px solid #e0ece9;
+  border-radius:12px;
+  padding:10px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.sale-total-item span{font-size:11px;color:#6b8288;font-weight:600}
+.sale-total-item strong{font-size:16px;color:#0f2a30}
+.sale-total-item--profit{
+  background:linear-gradient(135deg,#0f766e,#0d9488);
+  border-color:transparent;
+  color:#fff;
+}
+.sale-total-item--profit span{color:rgba(255,255,255,.85)}
+.sale-total-item--profit strong{color:#fff;font-size:17px}
+.num-warn{color:#b45309 !important}
+.sale-footer .pur-footer-fields{
+  align-items:flex-end;
+}
+@media (max-width:700px){
+  .sales-page .sale-meta-grid{grid-template-columns:1fr}
+  .sale-totals-grid{grid-template-columns:1fr}
+}

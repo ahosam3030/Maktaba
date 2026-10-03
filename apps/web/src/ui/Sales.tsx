@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
+import { IconReceipt, IconWallet, IconRefresh, IconChart, IconCart } from './Icons';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
 type CartLine = {
@@ -783,58 +784,97 @@ export function Sales() {
     printSale(draft);
   }
 
+  const salesTotal = filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0);
+  const salesDue = filteredSales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0);
+
   return (
-    <div className="purchases-page">
+    <div className="purchases-page sales-page">
       <div className="purchase-title">
         <div>
           <span className="eyebrow">نقطة البيع</span>
           <h1>المبيعات</h1>
-          <p>إصدار فواتير البيع، متابعة المخزون والمكسب، وسجل الفواتير السابقة.</p>
+          <p>فواتير البيع · التحصيل · المكسب · السجل</p>
         </div>
-        <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث البيانات</button>
+        <button className="secondary-btn" type="button" onClick={() => void refresh()}>
+          <IconRefresh size={16} />
+          <span>تحديث</span>
+        </button>
       </div>
 
-      <div className="stat-cards">
-        <div className="stat-card"><div className="label">فواتير البيع</div><div className="value">{filteredSales.length}</div></div>
-        <div className="stat-card"><div className="label">إجمالي الفواتير</div><div className="value">{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0))}</div></div>
-        <div className="stat-card"><div className="label">المتبقي على العملاء</div><div className="value">{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0))}</div></div>
-        <div className="stat-card"><div className="label">مكسب تقديري</div><div className={`value ${historyProfit >= 0 ? 'positive' : 'negative'}`}>{money(historyProfit)}</div></div>
+      <div className="pur-stats">
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconReceipt size={18} /></span>
+          <div>
+            <div className="label">فواتير البيع</div>
+            <div className="value">{filteredSales.length}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconCart size={18} /></span>
+          <div>
+            <div className="label">إجمالي الفواتير</div>
+            <div className="value" style={{ fontSize: 18 }}>{money(salesTotal)}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconWallet size={18} /></span>
+          <div>
+            <div className="label">المتبقي على العملاء</div>
+            <div className="value" style={{ fontSize: 18, color: salesDue > 0 ? '#b45309' : undefined }}>{money(salesDue)}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconChart size={18} /></span>
+          <div>
+            <div className="label">مكسب تقديري</div>
+            <div className="value" style={{ fontSize: 18, color: historyProfit >= 0 ? '#0a7a4b' : '#b42318' }}>{money(historyProfit)}</div>
+          </div>
+        </div>
       </div>
 
-      <div className="page-tabs" role="tablist">
-        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>فاتورة بيع</button>
-        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>سجل الفواتير</button>
+      <div className="pur-tabs" role="tablist">
+        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>
+          <IconReceipt size={16} /><span>فاتورة بيع</span>
+        </button>
+        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>
+          <IconCart size={16} /><span>سجل الفواتير</span>
+        </button>
       </div>
 
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
       {error && <div className="purchase-notice" role="alert">{error} — تأكد من تسجيل الدخول وتشغيل الخادم.</div>}
 
       {pageTab === 'invoice' && (
-      <section className="purchase-panel">
+      <section className="purchase-panel pur-invoice">
         <div className="panel-heading">
           <div>
-            <h2>فاتورة بيع</h2>
-            <p>امسح الباركود أو اكتب اسم الصنف — يظهر السعر والتكلفة والمكسب والمتبقي تلقائيًا.</p>
+            <h2>فاتورة بيع جديدة</h2>
+            <p>امسح الباركود أو اكتب اسم الصنف — السعر والتكلفة والمكسب والمتبقي يظهرون تلقائيًا.</p>
           </div>
         </div>
 
-        <div className="sale-meta-row">
-          <label>اسم العميل (اختياري)
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" />
-          </label>
-          <label>التاريخ
-            <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
-          </label>
-          <label>رقم الفاتورة (تلقائي)
-            <input
-              value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
-              title="يُولَّد بالترتيب تلقائيًا ويمكن تعديله يدويًا"
-            />
-          </label>
+        <div className="pur-section">
+          <div className="pur-section-title">بيانات الفاتورة</div>
+          <div className="pur-meta-grid sale-meta-grid">
+            <label className="pur-field pur-field--wide">اسم العميل (اختياري)
+              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" />
+            </label>
+            <label className="pur-field">التاريخ
+              <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+            </label>
+            <label className="pur-field">رقم الفاتورة
+              <input
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                title="يُولَّد بالترتيب تلقائيًا ويمكن تعديله يدويًا"
+              />
+            </label>
+          </div>
         </div>
 
-        <div className="sale-lines-wrap">
+        <div className="pur-section">
+          <div className="pur-section-title">بنود البيع</div>
+        <div className="sale-lines-wrap pur-lines">
           <table className="sale-lines-table">
             <thead>
               <tr>
@@ -963,19 +1003,19 @@ export function Sales() {
               })}
             </tbody>
           </table>
-
         </div>
 
         {products.length === 0 && (
           <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
         )}
 
-        <div style={{ marginTop: 12 }}>
+        <div className="pur-lines-actions">
           <button className="add-line-btn" type="button" onClick={addEmptyRow}>+ إضافة صنف</button>
         </div>
+        </div>
 
-        <div className="sale-pay-row">
-          <div className="sale-pay-fields">
+        <div className="pur-footer sale-footer">
+          <div className="pur-footer-fields">
             <label>خصم (ج)
               <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </label>
@@ -986,22 +1026,32 @@ export function Sales() {
               دفع كامل
             </button>
           </div>
-          <div className="sale-summary">
-            <div>الصافي: <strong>{money(total)}</strong></div>
-            <div>المتبقي: <strong>{money(remaining)}</strong></div>
-            <div>مكسب تقديري: <strong style={{ color: cartProfit >= 0 ? '#0a7a4b' : '#b42318' }}>{money(cartProfit)}</strong></div>
+          <div className="pur-footer-summary">
+            <div className="sale-totals-grid">
+              <div className="sale-total-item">
+                <span>الصافي</span>
+                <strong>{money(total)}</strong>
+              </div>
+              <div className="sale-total-item">
+                <span>المتبقي</span>
+                <strong className={remaining > 0 ? 'num-warn' : 'num-ok'}>{money(remaining)}</strong>
+              </div>
+              <div className="sale-total-item sale-total-item--profit">
+                <span>مكسب تقديري</span>
+                <strong className={cartProfit >= 0 ? 'num-ok' : 'num-bad'}>{money(cartProfit)}</strong>
+              </div>
+            </div>
+            <div className="pur-footer-actions">
+              <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
+                {saving ? 'جارٍ الحفظ...' : 'حفظ الفاتورة'}
+              </button>
+              <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
+                حفظ وطباعة
+              </button>
+              <button className="secondary-btn" type="button" onClick={printDraft}>طباعة مسودة</button>
+              <button className="secondary-btn" type="button" onClick={resetForm}>فاتورة جديدة</button>
+            </div>
           </div>
-        </div>
-
-        <div className="sale-actions">
-          <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(false)}>
-            {saving ? 'جارٍ الحفظ...' : 'حفظ الفاتورة'}
-          </button>
-          <button className="primary-btn" type="button" disabled={saving} onClick={() => void saveSale(true)}>
-            حفظ وطباعة
-          </button>
-          <button className="secondary-btn" type="button" onClick={printDraft}>طباعة بدون حفظ</button>
-          <button className="secondary-btn" type="button" onClick={resetForm}>فاتورة جديدة</button>
         </div>
       </section>
 
