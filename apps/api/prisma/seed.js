@@ -1,6 +1,12 @@
 /**
  * يمسح كل البيانات ويعيد مالك واحد.
- * من مجلد apps/api: npm run seed
+ * يتطلب تأكيدًا صريحًا حتى لا يُشغَّل بالخطأ:
+ *   set SEED_CONFIRM=YES
+ *   npm run seed
+ *
+ * يمكن تخصيص الحساب عبر متغيرات البيئة:
+ *   SEED_OWNER_EMAIL, SEED_OWNER_PASSWORD, SEED_OWNER_NAME,
+ *   SEED_ORG_NAME, SEED_ORG_SLUG, SEED_ORG_PHONE
  */
 const { PrismaClient } = require('@prisma/client');
 const crypto = require('crypto');
@@ -18,7 +24,29 @@ function hashPassword(plain) {
   return `pbkdf2_sha256$${iterations}$${salt.toString('base64url')}$${derived.toString('base64url')}`;
 }
 
+function isStrongPassword(password) {
+  if (!password) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  if (!/[^A-Za-z0-9]/.test(password)) return false;
+  return true;
+}
+
 async function main() {
+  if (process.env.SEED_CONFIRM !== 'YES') {
+    console.error('مرفوض: لتأكيد مسح القاعدة اضبط SEED_CONFIRM=YES ثم أعد التشغيل.');
+    console.error('مثال PowerShell:  $env:SEED_CONFIRM=\"YES\"; npm run seed');
+    process.exit(1);
+  }
+
+  const password = process.env.SEED_OWNER_PASSWORD || '';
+  if (!password || !isStrongPassword(password)) {
+    console.error('عيّن SEED_OWNER_PASSWORD بكلمة مرور قوية (كبير+صغير+رقم+رمز).');
+    console.error('مثال:  $env:SEED_OWNER_PASSWORD=\"YourPass@1\"');
+    process.exit(1);
+  }
+
   console.log('⚠ مسح كل المؤسسات والمستخدمين والبيانات...');
 
   await prisma.saleItem.deleteMany();
@@ -36,7 +64,6 @@ async function main() {
   await prisma.branch.deleteMany();
   await prisma.organization.deleteMany();
 
-  const password = process.env.SEED_OWNER_PASSWORD || 'Admin@12345';
   const email = (process.env.SEED_OWNER_EMAIL || 'admin@maktaba.local').toLowerCase();
   const fullName = process.env.SEED_OWNER_NAME || 'المالك';
   const orgName = process.env.SEED_ORG_NAME || 'مركز المهندس للخدمات العلمية والطباعة';
@@ -59,10 +86,10 @@ async function main() {
     },
   });
 
-  console.log('✓ تم المسح وإنشاء المالك (PBKDF2-SHA256):');
+  console.log('✓ تم المسح وإنشاء المالك (PBKDF2-SHA256)');
   console.log('  المكتبة: ' + org.name + ' (' + org.slug + ')');
-  console.log('  البريد:     ' + user.email);
-  console.log('  كلمة المرور: ' + password);
+  console.log('  البريد:  ' + user.email);
+  console.log('  (كلمة المرور هي التي عيّنتها في SEED_OWNER_PASSWORD — لن تُطبع هنا)');
 }
 
 main()

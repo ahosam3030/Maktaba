@@ -29,25 +29,22 @@
    DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/library_erp?schema=public"
    JWT_SECRET="غيّره-إلى-نص-طويل-عشوائي"
    ```
-4. أنشئ المالك الافتراضي (يمسح كل البيانات القديمة):
+4. أنشئ المالك (يمسح البيانات — **محلي على جهاز السيرفر فقط**):
+   - دبل كليك **`seed.bat`** → اكتب `YES` → أدخل بريدك وكلمة مرور قوية  
+   - أو من PowerShell:
    ```powershell
    cd apps\api
    npm install
    npx prisma generate
    npx prisma db push
+   $env:SEED_CONFIRM="YES"
+   $env:SEED_OWNER_EMAIL="you@example.com"
+   $env:SEED_OWNER_PASSWORD="YourStrong@Pass1"
    npm run seed
    ```
-5. من جذر المشروع دبل كليك **`start.bat`**  
-   أو شغّل يدويًا API ثم Web.
+5. دبل كليك **`start.bat`** وادخل بالبيانات التي عيّنتها أنت.
 
-### بيانات الدخول بعد `npm run seed`
-
-| الحقل | القيمة |
-|--------|--------|
-| البريد | `admin@maktaba.local` |
-| كلمة المرور | `Admin@12345` |
-
-بعد أول دخول: **الإعدادات → الحسابات** → أنشئ مالكًا ببياناتك واحذف الحساب الافتراضي.
+> كلمات المرور **لا** تُعرض في واجهة الدخول. `seed` يعمل فقط مع وصول للجهاز والمشروع وPostgreSQL — ليس من المتصفح.
 
 للإيقاف: `STOP.bat` أو أغلق نوافذ API/Web.
 
@@ -80,7 +77,8 @@
 
 ```powershell
 # من apps\api
-npm run seed                 # مسح الداتا + مالك واحد
+# يحتاج SEED_CONFIRM=YES و SEED_OWNER_PASSWORD
+npm run seed                 # مسح الداتا + مالك (أداة محلية)
 npx prisma db push           # مزامنة المخطط
 npx prisma migrate deploy    # تطبيق migrations
 npm run start:dev            # الخادم :3000

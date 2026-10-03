@@ -83,10 +83,6 @@ echo.
 echo تشغيل الخادم على http://localhost:3000
 echo تشغيل الواجهة على http://localhost:5173
 echo.
-echo لو «بيانات الدخول غير صحيحة» شغّل مرة واحدة: seed.bat
-echo   البريد: admin@maktaba.local
-echo   كلمة المرور: Admin@12345
-echo.
 echo سيتم فتح نافذتين. لا تغلقهما أثناء الاستخدام.
 echo لإيقاف النظام: STOP.bat أو أغلق النافذتين.
 echo.
