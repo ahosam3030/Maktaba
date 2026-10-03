@@ -33,7 +33,8 @@ export class ReportsController {
     const purchaseDateFilter = saleDateFilter;
     const cashDateFilter = saleDateFilter;
 
-    const [products, sales, purchaseInvoices, payments, returns, cashRows, allSalesItems] = await Promise.all([
+    const [products, sales, purchaseInvoices, payments, returns, cashRows, allSalesItems, serviceReceipts] =
+      await Promise.all([
       this.prisma.product.findMany({
         where: { organizationId: orgId },
         include: {
@@ -62,9 +63,15 @@ export class ReportsController {
       this.prisma.cashTransaction.findMany({
         where: { organizationId: orgId, ...(cashDateFilter ? { date: cashDateFilter } : {}) },
       }),
-      // all-time sales for inventory consistency not needed
       this.prisma.saleItem.findMany({
         where: { sale: { organizationId: orgId, ...(saleDateFilter ? { saleDate: saleDateFilter } : {}) } },
+      }),
+      this.prisma.serviceReceipt.findMany({
+        where: {
+          organizationId: orgId,
+          ...(saleDateFilter ? { receiptDate: saleDateFilter } : {}),
+        },
+        include: { items: true },
       }),
     ]);
 
@@ -132,6 +139,25 @@ export class ReportsController {
     void allSalesItems;
     const grossProfit = salesNet - cogs;
 
+    // --- Services period ---
+    let servicesCount = serviceReceipts.length;
+    let servicesSubtotal = 0;
+    let servicesFees = 0;
+    let servicesDiscount = 0;
+    let servicesNet = 0;
+    let servicesPaid = 0;
+    for (const r of serviceReceipts) {
+      servicesSubtotal += Number(r.subtotal);
+      servicesFees += Number(r.extraFees);
+      servicesDiscount += Number(r.discount);
+      servicesNet += Number(r.total);
+      servicesPaid += Number(r.paidAmount);
+    }
+    const servicesDue = Math.max(0, servicesNet - servicesPaid);
+    const combinedRevenue = salesNet + servicesNet;
+    const combinedProfit = grossProfit + servicesNet; // services have no COGS in this model
+
+
     // --- Purchases period ---
     let purchasesTotal = 0;
     let purchasesPaidOnInvoice = 0;
@@ -167,10 +193,20 @@ export class ReportsController {
     // --- Cash ---
     let cashIncome = 0;
     let cashExpense = 0;
+    let cashFromSales = 0;
+    let cashFromServices = 0;
+    let cashOtherIncome = 0;
     for (const row of cashRows) {
       const a = Number(row.amount);
-      if (row.kind === 'INCOME') cashIncome += a;
-      else cashExpense += a;
+      if (row.kind === 'INCOME') {
+        cashIncome += a;
+        const cat = (row.category || '').trim();
+        if (cat === 'مبيعات') cashFromSales += a;
+        else if (cat === 'خدمات') cashFromServices += a;
+        else cashOtherIncome += a;
+      } else {
+        cashExpense += a;
+      }
     }
     const cashNet = cashIncome - cashExpense;
 
@@ -217,6 +253,19 @@ export class ReportsController {
         grossProfit,
         grossMarginPct: salesNet > 0 ? (grossProfit / salesNet) * 100 : 0,
       },
+      services: {
+        count: servicesCount,
+        subtotal: servicesSubtotal,
+        fees: servicesFees,
+        discount: servicesDiscount,
+        net: servicesNet,
+        paid: servicesPaid,
+        due: servicesDue,
+      },
+      combined: {
+        revenue: combinedRevenue,
+        profit: combinedProfit,
+      },
       purchases: {
         invoicesCount: purchaseInvoices.length,
         total: purchasesTotal,
@@ -231,6 +280,9 @@ export class ReportsController {
         expense: cashExpense,
         net: cashNet,
         balanceAllTime: cashBalance,
+        fromSales: cashFromSales,
+        fromServices: cashFromServices,
+        otherIncome: cashOtherIncome,
       },
       capital: {
         inStock: capitalInStock,

@@ -42,6 +42,19 @@ type Summary = {
     grossProfit: number;
     grossMarginPct: number;
   };
+  services: {
+    count: number;
+    subtotal: number;
+    fees: number;
+    discount: number;
+    net: number;
+    paid: number;
+    due: number;
+  };
+  combined: {
+    revenue: number;
+    profit: number;
+  };
   purchases: {
     invoicesCount: number;
     total: number;
@@ -51,7 +64,15 @@ type Summary = {
     supplierDebt: number;
     purchasesAllTime: number;
   };
-  cash: { income: number; expense: number; net: number; balanceAllTime: number };
+  cash: {
+    income: number;
+    expense: number;
+    net: number;
+    balanceAllTime: number;
+    fromSales?: number;
+    fromServices?: number;
+    otherIncome?: number;
+  };
   capital: { inStock: number; liquid: number; supplierDebt: number; working: number; remaining: number };
 };
 
@@ -324,10 +345,24 @@ export function Reports() {
                 />
                 <Kpi label="تكلفة البضاعة المباعة" value={money(summary.sales.cogs)} hint="حسب تكلفة الأصناف" />
                 <Kpi
-                  label="مجمل الربح"
+                  label="مجمل ربح البضاعة"
                   value={money(summary.sales.grossProfit)}
                   hint={`هامش ${pct(summary.sales.grossMarginPct)}`}
                   tone={summary.sales.grossProfit >= 0 ? 'ok' : 'danger'}
+                  accent
+                />
+                <Kpi
+                  label="دخل الخدمات"
+                  value={money(summary.services?.net ?? 0)}
+                  hint={`${summary.services?.count ?? 0} فاتورة · محصّل ${money(summary.services?.paid ?? 0)}`}
+                  tone="info"
+                  accent
+                />
+                <Kpi
+                  label="إجمالي الإيراد (بضاعة + خدمات)"
+                  value={money(summary.combined?.revenue ?? summary.sales.net)}
+                  hint={`ربح تقديري ${money(summary.combined?.profit ?? summary.sales.grossProfit)}`}
+                  tone="ok"
                   accent
                 />
                 <Kpi
@@ -338,7 +373,12 @@ export function Reports() {
               </div>
 
               <div className="rpt-kpi-grid rpt-kpi-grid--3">
-                <Kpi label="إيرادات الخزينة" value={money(summary.cash.income)} tone="ok" />
+                <Kpi
+                  label="إيرادات الخزينة"
+                  value={money(summary.cash.income)}
+                  hint={`مبيعات ${money(summary.cash.fromSales ?? 0)} · خدمات ${money(summary.cash.fromServices ?? 0)}`}
+                  tone="ok"
+                />
                 <Kpi label="مصروفات الخزينة" value={money(summary.cash.expense)} tone="danger" />
                 <Kpi
                   label="صافي حركة الخزينة"
