@@ -166,7 +166,7 @@ export class AuthService {
       role: string;
       permissions?: string;
     },
-    organization: { id: string; name: string; slug: string },
+    organization: { id: string; name: string; slug: string; phone?: string | null },
   ) {
     let permissions = parsePermissions(user.permissions);
     if (isAdminRole(user.role)) permissions = [...ALL_PERMISSIONS];
