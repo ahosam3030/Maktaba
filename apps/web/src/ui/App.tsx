@@ -275,6 +275,10 @@ export function App() {
     }
   }
 
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء النور';
+
   const roleLabel =
     sessionUser?.role === 'OWNER' ? 'مالك' : sessionUser?.role === 'ADMIN' ? 'أدمن' : 'مستخدم';
 
@@ -298,90 +302,68 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <BrandLogo size={44} className="brand-logo" />
+          <BrandLogo size={46} className="brand-logo" />
           <div className="brand-copy">
-            <strong>إدارة المكتبات</strong>
-            <span>نظام تجاري</span>
+            <strong>مكتبة</strong>
+            <span>إدارة وتشغيل</span>
           </div>
         </div>
         <nav className="side-nav">
+          <div className="nav-group-label">نظرة عامة</div>
           <a
             className={activeSection === 'dashboard' ? 'active' : ''}
             href="#dashboard"
-            onClick={() => setActiveSection('dashboard')}
+            onClick={(e) => { e.preventDefault(); setActiveSection('dashboard'); }}
           >
             <SectionIcon name="dashboard" className="nav-icon" />
             <span>الرئيسية</span>
           </a>
+          <div className="nav-group-label">العمليات</div>
           {hasPermission(sessionUser, 'purchases') && (
-            <a
-              className={activeSection === 'purchases' ? 'active' : ''}
-              href="#purchases"
-              onClick={() => setActiveSection('purchases')}
-            >
-              <SectionIcon name="purchases" className="nav-icon" />
-              <span>المشتريات</span>
+            <a className={activeSection === 'purchases' ? 'active' : ''} href="#purchases"
+              onClick={(e) => { e.preventDefault(); setActiveSection('purchases'); }}>
+              <SectionIcon name="purchases" className="nav-icon" /><span>المشتريات</span>
             </a>
           )}
           {hasPermission(sessionUser, 'sales') && (
-            <a
-              className={activeSection === 'sales' ? 'active' : ''}
-              href="#sales"
-              onClick={() => setActiveSection('sales')}
-            >
-              <SectionIcon name="sales" className="nav-icon" />
-              <span>المبيعات</span>
+            <a className={activeSection === 'sales' ? 'active' : ''} href="#sales"
+              onClick={(e) => { e.preventDefault(); setActiveSection('sales'); }}>
+              <SectionIcon name="sales" className="nav-icon" /><span>المبيعات</span>
             </a>
           )}
           {hasPermission(sessionUser, 'inventory') && (
-            <a
-              className={activeSection === 'inventory' ? 'active' : ''}
-              href="#inventory"
-              onClick={() => setActiveSection('inventory')}
-            >
-              <SectionIcon name="inventory" className="nav-icon" />
-              <span>المخزون</span>
-            </a>
-          )}
-          {hasPermission(sessionUser, 'accounting') && (
-            <a
-              className={activeSection === 'accounting' ? 'active' : ''}
-              href="#accounting"
-              onClick={() => setActiveSection('accounting')}
-            >
-              <SectionIcon name="accounting" className="nav-icon" />
-              <span>الخزينة</span>
-            </a>
-          )}
-          {hasPermission(sessionUser, 'reports') && (
-            <a
-              className={activeSection === 'reports' ? 'active' : ''}
-              href="#reports"
-              onClick={() => setActiveSection('reports')}
-            >
-              <SectionIcon name="reports" className="nav-icon" />
-              <span>التقارير</span>
+            <a className={activeSection === 'inventory' ? 'active' : ''} href="#inventory"
+              onClick={(e) => { e.preventDefault(); setActiveSection('inventory'); }}>
+              <SectionIcon name="inventory" className="nav-icon" /><span>المخزون</span>
             </a>
           )}
           {hasPermission(sessionUser, 'printing') && (
-            <a
-              className={activeSection === 'printing' ? 'active' : ''}
-              href="#printing"
-              onClick={() => setActiveSection('printing')}
-            >
-              <SectionIcon name="printing" className="nav-icon" />
-              <span>الخدمات والإيصالات</span>
+            <a className={activeSection === 'printing' ? 'active' : ''} href="#printing"
+              onClick={(e) => { e.preventDefault(); setActiveSection('printing'); }}>
+              <SectionIcon name="printing" className="nav-icon" /><span>الخدمات</span>
+            </a>
+          )}
+          <div className="nav-group-label">المالية</div>
+          {hasPermission(sessionUser, 'accounting') && (
+            <a className={activeSection === 'accounting' ? 'active' : ''} href="#accounting"
+              onClick={(e) => { e.preventDefault(); setActiveSection('accounting'); }}>
+              <SectionIcon name="accounting" className="nav-icon" /><span>الخزينة</span>
+            </a>
+          )}
+          {hasPermission(sessionUser, 'reports') && (
+            <a className={activeSection === 'reports' ? 'active' : ''} href="#reports"
+              onClick={(e) => { e.preventDefault(); setActiveSection('reports'); }}>
+              <SectionIcon name="reports" className="nav-icon" /><span>التقارير</span>
             </a>
           )}
           {isLoggedIn && (
-            <a
-              className={activeSection === 'settings' ? 'active' : ''}
-              href="#settings"
-              onClick={() => setActiveSection('settings')}
-            >
-              <SectionIcon name="settings" className="nav-icon" />
-              <span>الإعدادات</span>
-            </a>
+            <>
+              <div className="nav-group-label">النظام</div>
+              <a className={activeSection === 'settings' ? 'active' : ''} href="#settings"
+                onClick={(e) => { e.preventDefault(); setActiveSection('settings'); }}>
+                <SectionIcon name="settings" className="nav-icon" /><span>الإعدادات</span>
+              </a>
+            </>
           )}
         </nav>
         <div className="sidebar-footer">
@@ -403,8 +385,9 @@ export function App() {
         </div>
       </aside>
 
-      <main className="main-content" id="dashboard">
+      <main className="main-content page-stage" id="dashboard" key={activeSection}>
         <div className="topbar">
+          <div className="topbar-titles">
           <h1 className="page-title">
             {activeSection === 'dashboard'
               ? isLoggedIn
@@ -426,6 +409,8 @@ export function App() {
                               ? 'الإعدادات'
                               : 'لوحة التحكم'}
           </h1>
+          <p className="topbar-sub">{isLoggedIn ? (sessionOrg?.name || 'نظام إدارة المكتبة') : 'أدخل بياناتك للمتابعة'}</p>
+          </div>
           <div className="status-pills">
             <span className={`pill ${connection === 'online' ? 'ok' : connection === 'checking' ? 'warn' : 'bad'}`}>
               {connection === 'online' ? 'الخادم متصل' : connection === 'checking' ? 'فحص الاتصال' : 'الخادم غير متاح'}
@@ -536,9 +521,9 @@ export function App() {
 
             <section className="welcome-banner">
               <div className="welcome-banner-text">
-                <p className="eyebrow">مرحبًا بك</p>
+                <p className="eyebrow">{greeting} · لوحة التحكم</p>
                 <h2>{sessionUser?.fullName}</h2>
-                <p>
+                <p className="welcome-sub">
                   {sessionOrg?.name}
                   {sessionOrg?.slug ? (
                     <>
