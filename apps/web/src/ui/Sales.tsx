@@ -229,10 +229,26 @@ export function Sales() {
     }));
   }
 
+  function focusBarcodeField(lineKey: string) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector(
+          `input[data-line-key="${lineKey}"][data-field="barcode"]`,
+        ) as HTMLInputElement | null;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+      });
+    });
+  }
+
+  /** بعد مسح ناجح: أضف سطرًا فارغًا إن لزم وانقل التركيز لباركود السطر التالي */
   function resolveBarcode(key: string, value?: string) {
+    let nextFocusKey: string | null = null;
     setCart((old) => {
       let ok = false;
-      const next = old.map((line) => {
+      let applied = old.map((line) => {
         if (line.key !== key) return line;
         const text = (value !== undefined ? value : line.barcode).trim();
         if (!text) return line;
@@ -245,10 +261,27 @@ export function Sales() {
         setNotice(`تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`);
         return applyProductToLine(line, p, text);
       });
-      if (!ok) return next;
-      const hasEmpty = next.some((l) => !l.productId && !l.query.trim() && !l.barcode.trim());
-      return hasEmpty ? next : [...next, emptyCartLine()];
+      if (!ok) return applied;
+
+      const idx = applied.findIndex((l) => l.key === key);
+      // سطر فارغ بعد السطر الحالي
+      let nextIdx = applied.findIndex(
+        (l, i) => i > idx && !l.productId && !String(l.query || '').trim() && !String(l.barcode || '').trim(),
+      );
+      if (nextIdx < 0) {
+        const blank = emptyCartLine();
+        applied = [...applied, blank];
+        nextIdx = applied.length - 1;
+      }
+      nextFocusKey = applied[nextIdx]?.key || null;
+      return applied;
     });
+    if (nextFocusKey) {
+      // انتظر تحديث الـ DOM بعد setState
+      setTimeout(() => {
+        if (nextFocusKey) focusBarcodeField(nextFocusKey);
+      }, 30);
+    }
   }
 
 
@@ -267,13 +300,6 @@ export function Sales() {
       if (!active) return;
       onBarcodeChangeRef.current(active, code);
       resolveBarcodeRef.current(active, code);
-      requestAnimationFrame(() => {
-        const qtyInput = document.querySelector(
-          `input[data-line-key="${active}"][data-field="quantity"]`,
-        ) as HTMLInputElement | null;
-        qtyInput?.focus();
-        qtyInput?.select();
-      });
     });
   }, []);
 
@@ -1055,13 +1081,6 @@ function printDraft() {
                             e.preventDefault();
                             e.stopPropagation();
                             resolveBarcode(line.key, (e.target as HTMLInputElement).value);
-                            requestAnimationFrame(() => {
-                              const qtyInput = document.querySelector(
-                                `input[data-line-key="${line.key}"][data-field="quantity"]`,
-                              ) as HTMLInputElement | null;
-                              qtyInput?.focus();
-                              qtyInput?.select();
-                            });
                           }
                         }}
                         autoComplete="off"
