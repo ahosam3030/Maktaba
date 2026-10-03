@@ -1,10 +1,11 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
-import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
+import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 
 @Controller('inventory')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('inventory')
 export class InventoryController {
   constructor(private readonly prisma: PrismaService) {}
 

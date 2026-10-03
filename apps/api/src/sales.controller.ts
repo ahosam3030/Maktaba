@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
-import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
+import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 
 type SaleDraft = {
   productId?: string;
@@ -12,7 +12,8 @@ type SaleDraft = {
 };
 
 @Controller('sales')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('sales')
 export class SalesController {
   constructor(private readonly prisma: PrismaService) {}
 

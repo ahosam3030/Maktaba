@@ -1,10 +1,11 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
-import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
+import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('purchases')
 export class SuppliersController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -31,7 +32,8 @@ type InvoiceInput = {
 };
 
 @Controller('purchases/invoices')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('purchases')
 export class PurchaseInvoicesController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -188,7 +190,8 @@ export class PurchaseInvoicesController {
 }
 
 @Controller('suppliers/payments')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('purchases')
 export class SupplierPaymentsController {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -226,7 +229,8 @@ export class SupplierPaymentsController {
 }
 
 @Controller('purchases/returns')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('purchases')
 export class PurchaseReturnsController {
   constructor(private readonly prisma: PrismaService) {}
 

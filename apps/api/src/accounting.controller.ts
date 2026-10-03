@@ -1,13 +1,14 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { CurrentUser, JwtAuthGuard, AuthUser } from './auth';
+import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 import { PrismaService } from './prisma.service';
 
 const METHODS = ['CASH', 'WALLET', 'BANK', 'CARD'] as const;
 const KINDS = ['INCOME', 'EXPENSE'] as const;
 
 @Controller('accounting/cash-transactions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('accounting')
 export class AccountingController {
   constructor(private readonly prisma: PrismaService) {}
 
