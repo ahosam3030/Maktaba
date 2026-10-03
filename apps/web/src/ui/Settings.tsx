@@ -376,16 +376,17 @@ export function Settings() {
         </div>
       )}
 
-      {tab === 'danger && isOwner && sessionOrg && (
+      {tab === 'danger' && isOwner && sessionOrg && (
         <div className="settings-tab-panel">
           <section className="purchase-panel danger-zone">
             <div className="panel-heading">
               <div>
                 <h2>حذف المكتبة نهائيًا من الخادم</h2>
                 <p>
-                  للمالك فقط. يحذف «{sessionOrg.name}» (
-                  <span dir="ltr">{sessionOrg.slug}</span>) وكل الفواتير والمخزون والمبيعات
-                  والمستخدمين من قاعدة البيانات. لا يمكن التراجع.
+                  للمالك فقط. يحذف المكتبة{' '}
+                  <strong>{sessionOrg.name}</strong> (
+                  <span dir="ltr">{sessionOrg.slug}</span>
+                  ) وكل الفواتير والمخزون والمبيعات والمستخدمين من قاعدة البيانات. لا يمكن التراجع.
                 </p>
               </div>
             </div>
