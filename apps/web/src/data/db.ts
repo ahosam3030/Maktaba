@@ -84,6 +84,7 @@ export interface OutboxItem {
   path: string;
   body: string | null;
   label: string;
+  organizationId?: string | null;
   createdAt: string;
   status: 'pending' | 'processing' | 'failed' | 'done';
   attempts: number;
