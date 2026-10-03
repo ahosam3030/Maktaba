@@ -147,11 +147,15 @@ export class ReportsController {
     let servicesNet = 0;
     let servicesPaid = 0;
     for (const r of serviceReceipts) {
-      servicesSubtotal += Number(r.subtotal);
-      servicesFees += Number(r.extraFees);
-      servicesDiscount += Number(r.discount);
-      servicesNet += Number(r.total);
-      servicesPaid += Number(r.paidAmount);
+      // ServiceReceipt لا يحتوي subtotal — نحسبه من الإجمالي والرسوم والخصم
+      const fees = Number(r.extraFees) || 0;
+      const disc = Number(r.discount) || 0;
+      const tot = Number(r.total) || 0;
+      servicesSubtotal += Math.max(0, tot - fees + disc);
+      servicesFees += fees;
+      servicesDiscount += disc;
+      servicesNet += tot;
+      servicesPaid += Number(r.paidAmount) || 0;
     }
     const servicesDue = Math.max(0, servicesNet - servicesPaid);
     const combinedRevenue = salesNet + servicesNet;

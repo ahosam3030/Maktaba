@@ -415,8 +415,6 @@ export function App() {
 
       <main className="main-content page-stage" id="dashboard" key={activeSection}>
         <div className="topbar">
-          <div className="topbar-titles">
-          <div className="topbar-title-row">
           <button
             type="button"
             className="sidebar-toggle-btn"
@@ -425,11 +423,12 @@ export function App() {
             aria-expanded={sidebarOpen}
             onClick={toggleSidebar}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
-            <span className="sidebar-toggle-btn__label">{sidebarOpen ? 'إخفاء' : 'القائمة'}</span>
+            <span className="sidebar-toggle-btn__label">{sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}</span>
           </button>
+          <div className="topbar-titles">
           <h1 className="page-title">
             {activeSection === 'dashboard'
               ? isLoggedIn
@@ -451,7 +450,6 @@ export function App() {
                               ? 'الإعدادات'
                               : 'لوحة التحكم'}
           </h1>
-          </div>
           <p className="topbar-sub">{isLoggedIn ? (sessionOrg?.name || 'نظام إدارة المكتبة') : 'أدخل بياناتك للمتابعة'}</p>
           </div>
           <div className="status-pills">

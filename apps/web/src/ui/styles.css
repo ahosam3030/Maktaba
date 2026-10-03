@@ -3185,3 +3185,38 @@ html[dir="rtl"] .sidebar-reopen-fab {
     pointer-events: none !important;
   }
 }
+
+/* Force topbar toggle always visible */
+.topbar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-wrap: wrap;
+}
+.topbar > .sidebar-toggle-btn {
+  order: 0;
+  flex-shrink: 0;
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  background: #0f766e !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.35) !important;
+}
+.topbar > .sidebar-toggle-btn:hover {
+  background: #0d9488 !important;
+  color: #fff !important;
+}
+.topbar > .sidebar-toggle-btn .sidebar-toggle-btn__label {
+  color: #fff !important;
+}
+.topbar > .topbar-titles {
+  flex: 1;
+  min-width: 140px;
+}
+.topbar > .status-pills {
+  margin-inline-start: auto;
+}
