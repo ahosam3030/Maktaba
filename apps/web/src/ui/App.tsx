@@ -40,6 +40,7 @@ export function App() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [showFirstSetup, setShowFirstSetup] = useState(false);
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
   const [activeSection, setActiveSection] = useState<
@@ -411,39 +412,18 @@ export function App() {
               <ul className="auth-features">
                 <li>مشتريات ومخزون ومبيعات مترابطة</li>
                 <li>خزينة وتقارير أرباح ورأس مال</li>
-                <li>صلاحيات للمستخدمين حسب القسم</li>
+                <li>المالك ينشئ حسابات الموظفين والصلاحيات</li>
                 <li>فواتير وإيصالات قابلة للطباعة</li>
               </ul>
             </section>
 
             <section className="auth-card">
-              <div className="auth-tabs">
-                <button
-                  type="button"
-                  className={authMode === 'login' ? 'active' : ''}
-                  onClick={() => {
-                    setAuthMode('login');
-                    setMessage('');
-                  }}
-                >
-                  دخول
-                </button>
-                <button
-                  type="button"
-                  className={authMode === 'register' ? 'active' : ''}
-                  onClick={() => {
-                    setAuthMode('register');
-                    setMessage('');
-                  }}
-                >
-                  تسجيل مكتبة جديدة
-                </button>
-              </div>
-
-              {authMode === 'login' ? (
+              {!showFirstSetup ? (
                 <>
                   <h3>تسجيل الدخول</h3>
-                  <p className="muted-sm">أدخل بريدك وكلمة المرور للوصول إلى بيانات مكتبتك.</p>
+                  <p className="muted-sm">
+                    أدخل بريدك وكلمة المرور. إنشاء حسابات الموظفين يتم من داخل النظام بواسطة المالك فقط.
+                  </p>
                   <div className="form-grid auth-form">
                     <label>
                       البريد الإلكتروني
@@ -476,11 +456,32 @@ export function App() {
                       {busy ? 'جارٍ الدخول...' : 'دخول'}
                     </button>
                   </div>
+                  {message && (
+                    <p className="feedback" role="status">
+                      {message}
+                    </p>
+                  )}
+                  <p className="muted-sm" style={{ marginTop: 18, textAlign: 'center' }}>
+                    أول تشغيل للخادم؟{' '}
+                    <button
+                      type="button"
+                      className="link-danger"
+                      style={{ color: '#0f766e' }}
+                      onClick={() => {
+                        setShowFirstSetup(true);
+                        setMessage('');
+                      }}
+                    >
+                      تثبيت مكتبة جديدة
+                    </button>
+                  </p>
                 </>
               ) : (
                 <>
-                  <h3>إنشاء حساب مكتبة</h3>
-                  <p className="muted-sm">بيانات المكتبة وحساب المالك. كلمة المرور 10 أحرف على الأقل.</p>
+                  <h3>تثبيت مكتبة جديدة</h3>
+                  <p className="muted-sm">
+                    لإنشاء مكتبة ومالك لأول مرة فقط. بعدها المالك يضيف المستخدمين من «المستخدمون».
+                  </p>
                   <div className="form-grid auth-form">
                     <label>
                       اسم المكتبة
@@ -488,160 +489,49 @@ export function App() {
                     </label>
                     <label>
                       المعرّف المختصر
-                      <input
-                        value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
-                        dir="ltr"
-                        placeholder="library-name"
-                      />
+                      <input value={slug} onChange={(e) => setSlug(e.target.value)} dir="ltr" placeholder="library-name" />
                       <small>إنجليزي وأرقام وشرطة فقط</small>
                     </label>
                     <label>
                       الهاتف
-                      <input value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" placeholder="01xxxxxxxxx" />
+                      <input value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
                     </label>
                     <label>
                       اسم المالك
-                      <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="الاسم بالكامل" />
+                      <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
                     </label>
                     <label>
                       البريد
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        dir="ltr"
-                        placeholder="name@example.com"
-                      />
+                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
                     </label>
                     <label>
                       كلمة المرور
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        dir="ltr"
-                        minLength={10}
-                        placeholder="10 أحرف على الأقل"
-                      />
+                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" minLength={10} />
                     </label>
                   </div>
                   <div className="form-actions">
                     <button className="primary-btn" type="button" onClick={() => void handleRegister()} disabled={busy}>
-                      {busy ? 'جارٍ الإنشاء...' : 'إنشاء الحساب'}
+                      {busy ? 'جارٍ الإنشاء...' : 'إنشاء المكتبة والمالك'}
+                    </button>
+                    <button
+                      className="secondary-btn"
+                      type="button"
+                      onClick={() => {
+                        setShowFirstSetup(false);
+                        setMessage('');
+                      }}
+                    >
+                      رجوع للدخول
                     </button>
                   </div>
+                  {message && (
+                    <p className="feedback" role="status">
+                      {message}
+                    </p>
+                  )}
                 </>
               )}
-              {message && (
-                <p className="feedback" role="status">
-                  {message}
-                </p>
-              )}
-
-              <div className="auth-danger-link">
-                <button
-                  type="button"
-                  className="link-danger"
-                  onClick={() => {
-                    setShowDeleteAccount((v) => !v);
-                    setDeleteEmail(loginEmail);
-                    setMessage('');
-                  }}
-                >
-                  {showDeleteAccount ? 'إخفاء حذف الحساب' : 'حذف مكتبتي من الخادم…'}
-                </button>
-              </div>
-
-              {showDeleteAccount && (
-                <div className="auth-delete-box">
-                  <h4>حذف نهائي من الخادم</h4>
-                  <p className="muted-sm">
-                    للمالك فقط. يلزم البريد وكلمة المرور ومعرّف المكتبة. لا يمكن التراجع. المستخدمون العاديون لا
-                    يستطيعون الحذف.
-                  </p>
-                  <div className="form-grid auth-form">
-                    <label>
-                      البريد
-                      <input
-                        type="email"
-                        value={deleteEmail}
-                        onChange={(e) => setDeleteEmail(e.target.value)}
-                        dir="ltr"
-                      />
-                    </label>
-                    <label>
-                      كلمة المرور
-                      <input
-                        type="password"
-                        value={deletePassword}
-                        onChange={(e) => setDeletePassword(e.target.value)}
-                        dir="ltr"
-                      />
-                    </label>
-                    <label>
-                      معرّف المكتبة للتأكيد
-                      <input
-                        value={deleteSlug}
-                        onChange={(e) => setDeleteSlug(e.target.value)}
-                        dir="ltr"
-                        placeholder="مثل: al-mohandes"
-                      />
-                    </label>
-                  </div>
-                  <button
-                    className="danger-outline-btn"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void deleteAccountFromLogin()}
-                  >
-                    تأكيد الحذف النهائي
-                  </button>
-                </div>
-              )}
             </section>
-
-            {organizations.length > 0 && (
-              <section className="panel auth-local-list">
-                <div className="panel-heading">
-                  <div>
-                    <h2>مكتبات على هذا الجهاز</h2>
-                    <p>مرجع محلي فقط — «إزالة من الجهاز» لا يحذف حساب الخادم. الحذف النهائي من النموذج أعلاه.</p>
-                  </div>
-                  <span className="count-badge">{organizations.length}</span>
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>الاسم</th>
-                        <th>المعرّف</th>
-                        <th>الهاتف</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {organizations.map((org) => (
-                        <tr key={org.id}>
-                          <td>{org.name}</td>
-                          <td dir="ltr">{org.slug}</td>
-                          <td dir="ltr">{org.phone || '—'}</td>
-                          <td>
-                            <button
-                              className="danger-outline-btn"
-                              type="button"
-                              onClick={() => void removeLocalOrg(org)}
-                            >
-                              إزالة من الجهاز
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
           </div>
         )}
 
@@ -690,94 +580,7 @@ export function App() {
                   </button>
                 ))}
             </section>
-
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>المكتبات المحفوظة على هذا الجهاز</h2>
-                  <p>إزالة من الجهاز لا تحذف حساب الخادم.</p>
-                </div>
-                <span className="count-badge">{organizations.length}</span>
-              </div>
-              {organizations.length === 0 ? (
-                <div className="empty-state">لا توجد مكتبات محفوظة محليًا.</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>اسم المكتبة</th>
-                        <th>المعرّف</th>
-                        <th>الهاتف</th>
-                        <th>الحالة</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {organizations.map((org) => (
-                        <tr key={org.id}>
-                          <td>
-                            {org.name}
-                            {sessionOrg?.id === org.id ? (
-                              <span className="tag synced" style={{ marginInlineStart: 8 }}>
-                                الحالية
-                              </span>
-                            ) : null}
-                          </td>
-                          <td dir="ltr">{org.slug}</td>
-                          <td dir="ltr">{org.phone || '—'}</td>
-                          <td>
-                            <span className={`tag ${org.localOnly ? 'local' : 'synced'}`}>
-                              {org.localOnly ? 'محلي فقط' : 'على الخادم'}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              className="danger-outline-btn"
-                              type="button"
-                              onClick={() => void removeLocalOrg(org)}
-                            >
-                              إزالة من الجهاز
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            {sessionUser?.role === 'OWNER' && sessionOrg && (
-              <section className="panel danger-zone">
-                <div className="panel-heading">
-                  <div>
-                    <h2>منطقة خطرة</h2>
-                    <p>حذف المكتبة من الخادم نهائي — لا يمكن التراجع. حسابات المستخدمين والفواتير تُحذف معها.</p>
-                  </div>
-                </div>
-                <div className="inline-form" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
-                  <label>
-                    اكتب المعرّف للتأكيد (<span dir="ltr">{sessionOrg.slug}</span>)
-                    <input
-                      value={confirmSlug}
-                      onChange={(e) => setConfirmSlug(e.target.value)}
-                      dir="ltr"
-                      placeholder={sessionOrg.slug}
-                    />
-                  </label>
-                  <button
-                    className="danger-outline-btn"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void deleteServerOrganization()}
-                  >
-                    حذف المكتبة نهائيًا من الخادم
-                  </button>
-                </div>
-              </section>
-            )}
-          </div>
+</div>
         )}
 
         {activeSection === 'purchases' && hasPermission(sessionUser, 'purchases') ? (

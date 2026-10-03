@@ -84,8 +84,18 @@ export function AdminUsers() {
     }
   }
 
-  if (!isAdminUser(me)) {
+  if (me?.role !== 'OWNER') {
     return <div className="purchases-page"><div className="purchase-notice" role="alert">هذه الصفحة للأدمن فقط.</div></div>;
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="purchases-page">
+        <div className="purchase-notice" role="alert">
+          إنشاء وتعديل حسابات المستخدمين متاح لمالك المكتبة فقط. تواصل مع المالك لإضافة صلاحياتك.
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -93,7 +103,7 @@ export function AdminUsers() {
       <div className="purchase-title">
         <div>
           <span className="eyebrow">لوحة الأدمن</span>
-          <h1>إدارة المستخدمين والصلاحيات</h1>
+          <h1>إدارة المستخدمين (المالك فقط)</h1>
           <p>أضف موظفين وحدّد الشاشات المسموح لهم بها. المالك والأدمن يريان كل الأقسام.</p>
         </div>
         <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث</button>

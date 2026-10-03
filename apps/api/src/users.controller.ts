@@ -43,7 +43,7 @@ export class UsersController {
     @CurrentUser() actor: AuthUser,
     @Body() body: { fullName?: string; email?: string; password?: string; role?: string; permissions?: string[] },
   ) {
-    if (!isAdminRole(actor.role)) throw new ForbiddenException('إدارة المستخدمين للأدمن فقط.');
+    if (actor.role !== 'OWNER') throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
     const fullName = body.fullName?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? '';
@@ -92,7 +92,7 @@ export class UsersController {
     @Param('id') id: string,
     @Body() body: { fullName?: string; role?: string; permissions?: string[]; active?: boolean; password?: string },
   ) {
-    if (!isAdminRole(actor.role)) throw new ForbiddenException('إدارة المستخدمين للأدمن فقط.');
+    if (actor.role !== 'OWNER') throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
     const target = await this.prisma.user.findFirst({ where: { id, organizationId: actor.organizationId } });
     if (!target) throw new BadRequestException('المستخدم غير موجود.');
     if (target.role === 'OWNER' && actor.userId !== target.id) {
