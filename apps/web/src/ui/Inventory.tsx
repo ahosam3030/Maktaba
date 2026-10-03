@@ -39,7 +39,7 @@ const emptyForm = {
   active: true,
 };
 
-export function Inventory() {
+export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -243,6 +243,7 @@ export function Inventory() {
 
   return (
     <div className="purchases-page">
+      {!embedded && (
       <div className="purchase-title">
         <div>
           <span className="eyebrow">المخزون</span>
@@ -254,6 +255,16 @@ export function Inventory() {
           <span>تحديث</span>
         </button>
       </div>
+      )}
+      {embedded && (
+        <div className="panel-heading" style={{ marginBottom: 14 }}>
+          <div>
+            <h2>المنتجات والأصناف</h2>
+            <p>أضف منتجات هنا لتظهر في المبيعات والمشتريات والمخزون — بدون الحاجة لفاتورة وارد أولًا.</p>
+          </div>
+          <button className="secondary-btn small" type="button" onClick={() => void refresh()}>تحديث</button>
+        </div>
+      )}
 
       <div className="pur-stats">
         <div className="pur-stat">

@@ -1628,7 +1628,7 @@ html,body,input,button,select,textarea,table{
 .settings-page .rpt-tabs,
 .settings-page .settings-nav.rpt-tabs{
   display:grid !important;
-  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr)) !important;
   gap:10px;
   width:100%;
 }

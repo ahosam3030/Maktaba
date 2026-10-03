@@ -1006,7 +1006,7 @@ export function Sales() {
         </div>
 
         {products.length === 0 && (
-          <div className="empty-state">لا توجد أصناف في المخزون. سجّل فاتورة وارد من المشتريات أولًا.</div>
+          <div className="empty-state">لا توجد أصناف بعد. أضف منتجات من الإعدادات ← المنتجات، أو من المخزون، أو عبر فاتورة وارد.</div>
         )}
 
         <div className="pur-lines-actions">

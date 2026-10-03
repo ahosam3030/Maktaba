@@ -13,16 +13,18 @@ import {
   getStoredUser,
 } from '../data/api';
 import { AdminUsers } from './AdminUsers';
-import { IconUsers, IconPrint, IconSettings, IconPackage, IconLock, IconRefresh } from './Icons';
+import { Inventory } from './Inventory';
+import { IconUsers, IconPrint, IconSettings, IconPackage, IconLock, IconRefresh, IconBoxes } from './Icons';
 
-type Tab = 'invoice' | 'users' | 'libraries' | 'danger';
+type Tab = 'invoice' | 'users' | 'products' | 'libraries' | 'danger';
 
 export function Settings() {
   const sessionUser = getStoredUser();
   const sessionOrg = getStoredOrganization();
   const isOwner = sessionUser?.role === 'OWNER';
+  const canProducts = isOwner || hasPermission(sessionUser, 'inventory');
 
-  const [tab, setTab] = useState<Tab>(isOwner ? 'users' : 'invoice');
+  const [tab, setTab] = useState<Tab>(isOwner ? 'users' : canProducts ? 'products' : 'invoice');
   const [form, setForm] = useState<InvoiceSettings>(() => loadInvoiceSettings());
   const [tagsText, setTagsText] = useState(() => loadInvoiceSettings().serviceTags.join('\n'));
   const [notice, setNotice] = useState('');
@@ -113,6 +115,7 @@ export function Settings() {
 
   const tabs: Array<{ id: Tab; label: string; desc: string; show: boolean; Icon: typeof IconUsers }> = [
     { id: 'users', label: 'الحسابات', desc: 'مستخدمون وصلاحيات', show: isOwner, Icon: IconUsers },
+    { id: 'products', label: 'المنتجات', desc: 'أصناف وباركود وأسعار', show: canProducts, Icon: IconBoxes },
     { id: 'invoice', label: 'الطباعة', desc: 'بيانات الإيصالات', show: true, Icon: IconPrint },
     { id: 'libraries', label: 'هذا الجهاز', desc: 'المكتبة والذاكرة', show: true, Icon: IconPackage },
     { id: 'danger', label: 'حذف نهائي', desc: 'للمالك فقط', show: isOwner, Icon: IconLock },
@@ -191,6 +194,12 @@ export function Settings() {
       {tab === 'users' && isOwner && (
         <div className="settings-tab-panel">
           <AdminUsers embedded />
+        </div>
+      )}
+
+      {tab === 'products' && canProducts && (
+        <div className="settings-tab-panel">
+          <Inventory embedded />
         </div>
       )}
 
