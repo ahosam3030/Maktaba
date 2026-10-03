@@ -1,9 +1,9 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards, ForbiddenException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from './prisma.service';
 import {
   CurrentUser, JwtAuthGuard, AuthUser, ALL_PERMISSIONS, isAdminRole, parsePermissions, RequirePermission, PermissionsGuard,
 } from './auth';
+import { hashPassword } from './crypto.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -62,7 +62,7 @@ export class UsersController {
     const perms = role === 'ADMIN'
       ? [...ALL_PERMISSIONS]
       : (Array.isArray(body.permissions) ? body.permissions : []).filter((p) => (ALL_PERMISSIONS as readonly string[]).includes(p));
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await hashPassword(password);
     try {
       const created = await this.prisma.user.create({
         data: {
@@ -138,7 +138,7 @@ export class UsersController {
 
     if (body.password) {
       if (body.password.length < 10) throw new BadRequestException('كلمة المرور يجب ألا تقل عن 10 أحرف.');
-      data.passwordHash = await bcrypt.hash(body.password, 12);
+      data.passwordHash = await hashPassword(body.password);
     }
 
     const updated = await this.prisma.user.update({

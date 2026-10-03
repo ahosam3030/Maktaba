@@ -43,7 +43,7 @@ async function main() {
   const slug = (process.env.SEED_ORG_SLUG || 'al-mohandes').toLowerCase();
   const phone = process.env.SEED_ORG_PHONE || '01127897245';
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password, 14);
   const org = await prisma.organization.create({
     data: { name: orgName, slug, phone },
   });

@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
-import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSIONS, isAdminRole, parsePermissions } from './auth';
+import { hashPassword, verifyPassword } from './crypto.util';
 
 @Injectable()
 export class AuthService {
@@ -51,7 +51,7 @@ export class AuthService {
     if (password.length < 10) {
       throw new BadRequestException('كلمة المرور يجب ألا تقل عن 10 أحرف.');
     }
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await hashPassword(password);
     const allPerms = JSON.stringify([...ALL_PERMISSIONS]);
     try {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -98,7 +98,7 @@ export class AuthService {
       !user ||
       !user.active ||
       !user.passwordHash ||
-      !(await bcrypt.compare(password, user.passwordHash))
+      !(await verifyPassword(password, user.passwordHash))
     ) {
       throw new UnauthorizedException('بيانات الدخول غير صحيحة.');
     }
@@ -140,7 +140,7 @@ export class AuthService {
       where: { email },
       include: { organization: true },
     });
-    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
       throw new UnauthorizedException('بيانات الدخول غير صحيحة.');
     }
     if (user.role !== 'OWNER') {
