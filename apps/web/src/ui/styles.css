@@ -4369,3 +4369,105 @@ aside.sidebar.sidebar--collapsed {
     padding: 14px 16px;
   }
 }
+
+/* ========== تباين لوحة التحكم والبانر ========== */
+.welcome-banner {
+  background:
+    radial-gradient(520px 180px at 0% 100%, rgba(255,255,255,0.08), transparent 55%),
+    linear-gradient(125deg, #0f5f5a 0%, #0f766e 40%, #155e75 100%) !important;
+  color: #ffffff !important;
+}
+.welcome-banner .eyebrow,
+.welcome-banner-text .eyebrow {
+  color: #a7f3e8 !important;
+  opacity: 1 !important;
+}
+.welcome-banner h2,
+.welcome-banner-text h2 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.welcome-sub,
+.welcome-banner-text > p,
+.welcome-banner p {
+  color: #e6fffa !important;
+  opacity: 1 !important;
+}
+.welcome-meta .pill,
+.welcome-meta .role-pill {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+.welcome-meta .pill.ok {
+  background: rgba(22, 163, 74, 0.35) !important;
+  border-color: rgba(187, 247, 208, 0.5) !important;
+  color: #ecfdf5 !important;
+}
+.welcome-meta .pill.bad {
+  background: rgba(185, 28, 28, 0.4) !important;
+  border-color: rgba(254, 202, 202, 0.55) !important;
+  color: #fff1f2 !important;
+}
+.welcome-meta .pill.warn {
+  background: rgba(217, 119, 6, 0.4) !important;
+  border-color: rgba(253, 230, 138, 0.5) !important;
+  color: #fffbeb !important;
+}
+
+/* شارات الحالة أعلى الصفحة */
+.topbar .pill,
+.status-pills .pill {
+  background: #ffffff;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-strong);
+  font-weight: 600;
+}
+.topbar .pill.ok,
+.status-pills .pill.ok {
+  background: var(--color-success-soft);
+  border-color: #86efac;
+  color: #14532d;
+}
+.topbar .pill.bad,
+.status-pills .pill.bad,
+.topbar .pill.warn,
+.status-pills .pill.warn {
+  background: var(--color-danger-soft);
+  border-color: #fecaca;
+  color: #7f1d1d;
+}
+.topbar .pill.muted,
+.status-pills .pill.muted {
+  background: #f8fafc;
+  color: var(--color-text-muted);
+}
+
+/* بطاقات الاختصارات */
+.quick-card {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+.quick-card strong {
+  color: var(--color-text-strong);
+  font-weight: 700;
+}
+.quick-card span {
+  color: var(--color-text-muted);
+}
+.quick-card:hover {
+  border-color: var(--color-primary-focus);
+  box-shadow: var(--shadow-md);
+}
+
+/* عنوان الصفحة */
+.page-title,
+.topbar-titles h1 {
+  color: var(--color-text-strong);
+}
+.topbar-sub {
+  color: var(--color-text-muted) !important;
+}
