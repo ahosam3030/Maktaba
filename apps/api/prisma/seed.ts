@@ -1,22 +1,22 @@
 /**
  * يمسح كل البيانات ويعيد مالك واحد.
- * من مجلد apps/api:
- *   npm run seed
+ * من مجلد apps/api: npm run seed
  */
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 const ALL_PERMISSIONS = [
-  'purchases',
-  'sales',
-  'inventory',
-  'accounting',
-  'printing',
-  'reports',
-  'users',
+  'purchases', 'sales', 'inventory', 'accounting', 'printing', 'reports', 'users',
 ];
+
+function hashPasswordSync(plain: string): string {
+  const iterations = 210_000;
+  const salt = crypto.randomBytes(16);
+  const derived = crypto.pbkdf2Sync(plain, salt, iterations, 32, 'sha256');
+  return `pbkdf2_sha256$${iterations}$${salt.toString('base64url')}$${derived.toString('base64url')}`;
+}
 
 async function main() {
   console.log('⚠ مسح كل المؤسسات والمستخدمين والبيانات...');
@@ -43,7 +43,7 @@ async function main() {
   const slug = (process.env.SEED_ORG_SLUG || 'al-mohandes').toLowerCase();
   const phone = process.env.SEED_ORG_PHONE || '01127897245';
 
-  const passwordHash = await bcrypt.hash(password, 14);
+  const passwordHash = hashPasswordSync(password);
   const org = await prisma.organization.create({
     data: { name: orgName, slug, phone },
   });
@@ -59,11 +59,10 @@ async function main() {
     },
   });
 
-  console.log('✓ تم المسح وإنشاء المالك:');
+  console.log('✓ تم المسح وإنشاء المالك (كلمة المرور مخزّنة PBKDF2-SHA256):');
   console.log(`  المكتبة: ${org.name} (${org.slug})`);
   console.log(`  البريد:     ${user.email}`);
   console.log(`  كلمة المرور: ${password}`);
-  console.log('  غيّر كلمة المرور بعد أول دخول من الإعدادات/المستخدمين إن لزم.');
 }
 
 main()
