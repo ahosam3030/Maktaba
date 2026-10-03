@@ -84,6 +84,10 @@ export function Purchases() {
   const [paid, setPaid] = useState('0');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+  const [filterPay, setFilterPay] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
+  const [paymentSearch, setPaymentSearch] = useState('');
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [productReportQuery, setProductReportQuery] = useState('');
@@ -463,9 +467,29 @@ export function Purchases() {
     w.document.close();
   }
 
-  const filtered = invoices.filter((i) =>
-    `${i.invoiceNumber} ${i.supplier?.name || ''}`.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return invoices.filter((i) => {
+      const hay = `${i.invoiceNumber} ${i.supplier?.name || ''} ${i.notes || ''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      const d = String(i.invoiceDate).slice(0, 10);
+      if (filterFrom && d < filterFrom) return false;
+      if (filterTo && d > filterTo) return false;
+      const total = num(i.total);
+      const paid = num(i.paidAmount);
+      const status = paid <= 0 ? 'unpaid' : paid + 0.001 >= total ? 'paid' : 'partial';
+      if (filterPay !== 'all' && status !== filterPay) return false;
+      return true;
+    });
+  }, [invoices, search, filterFrom, filterTo, filterPay]);
+
+  const filteredPayments = useMemo(() => {
+    const q = paymentSearch.trim().toLowerCase();
+    if (!q) return payments;
+    return payments.filter((p) =>
+      `${p.supplier?.name || ''} ${p.method} ${p.paymentDate}`.toLowerCase().includes(q),
+    );
+  }, [payments, paymentSearch]);
 
   function toggleSelectAllFiltered() {
     const ids = filtered.map((i) => i.id);
@@ -831,7 +855,12 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
 
       {pageTab === 'payments' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>دفعات الموردين</h2><p>تسجيل مدفوعات للموردين.</p></div></div>
+        <div className="panel-heading"><div><h2>دفعات الموردين</h2><p>تسجيل مدفوعات للموردين.</p></div><span className="count-badge">{filteredPayments.length}</span></div>
+        <div className="filter-bar">
+          <label className="grow">بحث في الدفعات
+            <input value={paymentSearch} onChange={(e) => setPaymentSearch(e.target.value)} placeholder="مورد / طريقة / تاريخ" />
+          </label>
+        </div>
         <div className="inline-form">
           <label>المورد<select value={paymentSupplierId} onChange={(e) => setPaymentSupplierId(e.target.value)}><option value="">اختر</option>{suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label>المبلغ<input type="number" min="0" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></label>
@@ -839,7 +868,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
           <button className="primary-btn" type="button" onClick={() => void savePayment()}>حفظ الدفعة</button>
         </div>
         <div className="table-wrap"><table><thead><tr><th>المورد</th><th>المبلغ</th><th>التاريخ</th><th>الطريقة</th></tr></thead>
-          <tbody>{payments.slice(0, 20).map((p) => <tr key={p.id}><td>{p.supplier?.name}</td><td>{money(num(p.amount))}</td><td>{String(p.paymentDate).slice(0, 10)}</td><td>{p.method}</td></tr>)}</tbody></table></div>
+          <tbody>{filteredPayments.slice(0, 50).map((p) => <tr key={p.id}><td>{p.supplier?.name}</td><td>{money(num(p.amount))}</td><td>{String(p.paymentDate).slice(0, 10)}</td><td>{p.method}</td></tr>)}</tbody></table></div>
       </section>
 
       )}
@@ -1048,7 +1077,28 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
             </button>
           </div>
         </div>
-        <input className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث برقم الفاتورة أو المورد" />
+        <div className="filter-bar">
+          <label className="grow">بحث
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="رقم فاتورة / مورد / ملاحظات" />
+          </label>
+          <label>من تاريخ
+            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+          </label>
+          <label>إلى تاريخ
+            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+          </label>
+          <label>الدفع
+            <select value={filterPay} onChange={(e) => setFilterPay(e.target.value as typeof filterPay)}>
+              <option value="all">الكل</option>
+              <option value="paid">مدفوع بالكامل</option>
+              <option value="partial">مدفوع جزئيًا</option>
+              <option value="unpaid">غير مدفوع</option>
+            </select>
+          </label>
+          <div className="filter-actions">
+            <button type="button" className="secondary-btn small" onClick={() => { setSearch(''); setFilterFrom(''); setFilterTo(''); setFilterPay('all'); }}>مسح الفلاتر</button>
+          </div>
+        </div>
         <div className="table-wrap"><table><thead><tr>
           <th style={{ width: 42 }}>
             <input

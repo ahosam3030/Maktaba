@@ -49,6 +49,9 @@ export function Sales() {
   const [discount, setDiscount] = useState('0');
   const [paidAmount, setPaidAmount] = useState('');
   const [saleSearch, setSaleSearch] = useState('');
+  const [saleFilterFrom, setSaleFilterFrom] = useState('');
+  const [saleFilterTo, setSaleFilterTo] = useState('');
+  const [saleFilterPay, setSaleFilterPay] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
   const [notice, setNotice] = useState('');
   const [pageTab, setPageTab] = useState<'invoice' | 'history'>('invoice');
   const [error, setError] = useState('');
@@ -106,13 +109,19 @@ export function Sales() {
 
   const filteredSales = useMemo(() => {
     const q = saleSearch.trim().toLowerCase();
-    if (!q) return sales;
-    return sales.filter((s) =>
-      `${s.invoiceNumber} ${s.customerName || ''} ${(s.items || []).map((i) => i.productName).join(' ')}`
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [sales, saleSearch]);
+    return sales.filter((s) => {
+      const hay = `${s.invoiceNumber || ''} ${s.customerName || ''} ${(s.items || []).map((it: { productName?: string }) => it.productName || '').join(' ')}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      const d = String(s.saleDate || s.createdAt || '').slice(0, 10);
+      if (saleFilterFrom && d && d < saleFilterFrom) return false;
+      if (saleFilterTo && d && d > saleFilterTo) return false;
+      const total = Number(s.total) || 0;
+      const paid = Number(s.paidAmount) || 0;
+      const status = paid <= 0 ? 'unpaid' : paid + 0.001 >= total ? 'paid' : 'partial';
+      if (saleFilterPay !== 'all' && status !== saleFilterPay) return false;
+      return true;
+    });
+  }, [sales, saleSearch, saleFilterFrom, saleFilterTo, saleFilterPay]);
 
   const historyProfit = useMemo(() => filteredSales.reduce((sum, sale) => {
     return sum + (sale.items || []).reduce((s, it) => {
@@ -1005,12 +1014,29 @@ export function Sales() {
             <h2>سجل فواتير البيع</h2>
             <p>الحذف يعيد رصيد البضاعة ويلغي قيد التحصيل من الخزينة إن وُجد.</p>
           </div>
-          <input
-            style={{ maxWidth: 280 }}
-            placeholder="بحث: رقم فاتورة / عميل / صنف"
-            value={saleSearch}
-            onChange={(e) => setSaleSearch(e.target.value)}
-          />
+          <span className="count-badge">{filteredSales.length}</span>
+        </div>
+        <div className="filter-bar">
+          <label className="grow">بحث
+            <input value={saleSearch} onChange={(e) => setSaleSearch(e.target.value)} placeholder="رقم فاتورة / عميل / صنف" />
+          </label>
+          <label>من تاريخ
+            <input type="date" value={saleFilterFrom} onChange={(e) => setSaleFilterFrom(e.target.value)} />
+          </label>
+          <label>إلى تاريخ
+            <input type="date" value={saleFilterTo} onChange={(e) => setSaleFilterTo(e.target.value)} />
+          </label>
+          <label>الدفع
+            <select value={saleFilterPay} onChange={(e) => setSaleFilterPay(e.target.value as typeof saleFilterPay)}>
+              <option value="all">الكل</option>
+              <option value="paid">مدفوع</option>
+              <option value="partial">جزئي</option>
+              <option value="unpaid">غير مدفوع</option>
+            </select>
+          </label>
+          <div className="filter-actions">
+            <button type="button" className="secondary-btn small" onClick={() => { setSaleSearch(''); setSaleFilterFrom(''); setSaleFilterTo(''); setSaleFilterPay('all'); }}>مسح</button>
+          </div>
         </div>
         {loading ? <div className="empty-state">جارٍ تحميل الفواتير...</div> : (
           <div className="table-wrap">

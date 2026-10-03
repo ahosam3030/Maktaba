@@ -25,6 +25,7 @@ export function Inventory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'in' | 'zero' | 'negative'>('all');
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('جرد فعلي');
@@ -63,11 +64,18 @@ export function Inventory() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (i) => i.name.toLowerCase().includes(q) || (i.barcode || '').toLowerCase().includes(q),
-    );
-  }, [items, query]);
+    return items.filter((item) => {
+      if (q) {
+        const hay = `${item.name} ${item.barcode || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const stock = Number(item.stock) || 0;
+      if (stockFilter === 'in' && stock <= 0) return false;
+      if (stockFilter === 'zero' && stock !== 0) return false;
+      if (stockFilter === 'negative' && stock >= 0) return false;
+      return true;
+    });
+  }, [items, query, stockFilter]);
 
   const totals = useMemo(() => {
     const units = items.reduce((s, i) => s + i.stock, 0);
@@ -323,12 +331,22 @@ export function Inventory() {
           </div>
           <span className="count-badge">{filtered.length}</span>
         </div>
-        <input
-          className="search-input"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ابحث باسم الصنف أو الباركود"
-        />
+        <div className="filter-bar">
+          <label className="grow">بحث
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="اسم الصنف أو الباركود" />
+          </label>
+          <label>الرصيد
+            <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}>
+              <option value="all">الكل</option>
+              <option value="in">متوفر (&gt; 0)</option>
+              <option value="zero">صفر</option>
+              <option value="negative">سالب</option>
+            </select>
+          </label>
+          <div className="filter-actions">
+            <button type="button" className="secondary-btn small" onClick={() => { setQuery(''); setStockFilter('all'); }}>مسح</button>
+          </div>
+        </div>
         {loading ? (
           <div className="empty-state">جارٍ تحميل المخزون...</div>
         ) : (

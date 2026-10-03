@@ -23,6 +23,8 @@ export function Accounting() {
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
+  const [kindFilter, setKindFilter] = useState<'all' | 'INCOME' | 'EXPENSE'>('all');
+  const [methodFilter, setMethodFilter] = useState('all');
   const [fromDate, setFromDate] = useState(today().slice(0, 7) + '-01');
   const [toDate, setToDate] = useState(today());
   const [notice, setNotice] = useState('');
@@ -53,11 +55,19 @@ export function Accounting() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const displayRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (kindFilter !== 'all' && r.kind !== kindFilter) return false;
+      if (methodFilter !== 'all' && r.method !== methodFilter) return false;
+      return true;
+    });
+  }, [rows, kindFilter, methodFilter]);
+
   const totals = useMemo(() => {
-    const income = rows.filter((r) => r.kind === 'INCOME').reduce((s, r) => s + Number(r.amount), 0);
-    const expense = rows.filter((r) => r.kind === 'EXPENSE').reduce((s, r) => s + Number(r.amount), 0);
+    const income = displayRows.filter((r) => r.kind === 'INCOME').reduce((s, r) => s + Number(r.amount), 0);
+    const expense = displayRows.filter((r) => r.kind === 'EXPENSE').reduce((s, r) => s + Number(r.amount), 0);
     return { income, expense, net: income - expense };
-  }, [rows]);
+  }, [displayRows]);
 
   async function save() {
     const value = Number(amount);
@@ -158,15 +168,40 @@ export function Accounting() {
 
       {pageTab === 'ledger' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>السجل</h2><p>فلترة حسب التاريخ أو البحث في البند والمرجع.</p></div><span className="count-badge">{rows.length}</span></div>
-        <div className="inline-form">
-          <label>من<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label>
-          <label>إلى<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label>
-          <label>بحث<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بند / مرجع / ملاحظات" /></label>
+        <div className="panel-heading"><div><h2>السجل</h2><p>فلترة حسب التاريخ أو البحث في البند والمرجع.</p></div><span className="count-badge">{displayRows.length}</span></div>
+        <div className="filter-bar">
+          <label className="grow">بحث
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بند / مرجع / ملاحظات" />
+          </label>
+          <label>من
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </label>
+          <label>إلى
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </label>
+          <label>النوع
+            <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as typeof kindFilter)}>
+              <option value="all">الكل</option>
+              <option value="INCOME">إيراد</option>
+              <option value="EXPENSE">مصروف</option>
+            </select>
+          </label>
+          <label>الطريقة
+            <select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)}>
+              <option value="all">الكل</option>
+              <option value="CASH">نقدي</option>
+              <option value="WALLET">محفظة</option>
+              <option value="BANK">بنك</option>
+              <option value="CARD">بطاقة</option>
+            </select>
+          </label>
+          <div className="filter-actions">
+            <button type="button" className="secondary-btn small" onClick={() => { setSearch(''); setKindFilter('all'); setMethodFilter('all'); }}>مسح</button>
+          </div>
         </div>
         {loading ? <div className="empty-state">جارٍ التحميل...</div> : (
           <div className="table-wrap"><table><thead><tr><th>النوع</th><th>التاريخ</th><th>البند</th><th>المبلغ</th><th>الطريقة</th><th>المرجع</th><th></th></tr></thead>
-            <tbody>{rows.map((r) => (
+            <tbody>{displayRows.map((r) => (
               <tr key={r.id}>
                 <td>{r.kind === 'INCOME' ? 'إيراد' : 'مصروف'}</td>
                 <td>{String(r.date).slice(0, 10)}</td>
@@ -177,7 +212,7 @@ export function Accounting() {
                 <td><button className="icon-btn" type="button" onClick={() => void remove(r.id)}>×</button></td>
               </tr>
             ))}</tbody></table>
-            {rows.length === 0 && <div className="empty-state">لا توجد حركات في الفترة المحددة.</div>}
+            {displayRows.length === 0 && <div className="empty-state">لا توجد حركات في الفترة المحددة.</div>}
           </div>
         )}
       </section>
