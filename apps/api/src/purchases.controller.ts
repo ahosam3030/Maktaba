@@ -94,15 +94,26 @@ export class PurchaseInvoicesController {
         for (const item of items) {
           let product = item.productId
             ? await tx.product.findFirst({ where: { id: item.productId, organizationId: user.organizationId } })
-            : await tx.product.findFirst({ where: { organizationId: user.organizationId, name: item.productName } });
+            : null;
           if (item.productId && !product) throw new BadRequestException('أحد الأصناف لا ينتمي إلى مكتبتك.');
+          const barcode = item.barcode?.trim() || null;
+          if (!product && barcode) {
+            product = await tx.product.findFirst({
+              where: { organizationId: user.organizationId, barcode },
+            });
+          }
+          if (!product && item.productName) {
+            product = await tx.product.findFirst({
+              where: { organizationId: user.organizationId, name: item.productName },
+            });
+          }
 
           if (!product) {
             product = await tx.product.create({
               data: {
                 organizationId: user.organizationId,
                 name: item.productName,
-                barcode: item.barcode?.trim() || null,
+                barcode,
                 unit: item.unit,
                 piecesPerPack: item.piecesPerPack,
                 currentCost: item.costPerPiece,

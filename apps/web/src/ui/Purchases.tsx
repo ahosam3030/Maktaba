@@ -263,10 +263,18 @@ export function Purchases() {
     return `«${last.productName}»: آخر سعر ${last.unitCost} ج من ${last.supplier} بتاريخ ${last.date}`;
   }
 
+  function normalizeBarcode(raw: string): string {
+    return (raw || '').trim().replace(/\s+/g, '');
+  }
+
   function findCatalogProduct(query?: string): InventoryProduct | undefined {
     const q = (query || '').trim().toLowerCase();
     if (!q) return undefined;
-    const byBarcode = catalog.find((p) => (p.barcode || '').trim().toLowerCase() === q);
+    const qBc = normalizeBarcode(query || '').toLowerCase();
+    const byBarcode = catalog.find((p) => {
+      const pb = normalizeBarcode(p.barcode || '').toLowerCase();
+      return pb && (pb === qBc || pb === q);
+    });
     if (byBarcode) return byBarcode;
     const exactName = catalog.find((p) => p.name.trim().toLowerCase() === q);
     if (exactName) return exactName;
@@ -320,7 +328,7 @@ export function Purchases() {
   }
 
   function fillFromBarcode(key: string, barcode: string) {
-    const bc = barcode.trim();
+    const bc = normalizeBarcode(barcode);
     if (!bc) return;
     const product = findCatalogProduct(bc);
     if (product) {
@@ -328,7 +336,24 @@ export function Purchases() {
       ensureEmptyRowAfter(key);
       return;
     }
-    setNotice(`لا يوجد صنف مسجّل بالباركود «${bc}». يمكنك إدخاله كصنف جديد.`);
+    // صنف جديد: ثبت الباركود وركّز على الاسم ليكمل المستخدم البيانات
+    updateDraft(key, {
+      barcode: bc,
+      productId: '',
+      productName: '',
+      stock: null,
+    });
+    setNotice(
+      `باركود جديد «${bc}» — اكتب اسم الصنف وسعر الشراء ثم احفظ الفاتورة (سيُسجَّل في المخزون تلقائيًا).`,
+    );
+    ensureEmptyRowAfter(key);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(
+        `input[data-line-key="${key}"][data-field="productName"]`,
+      ) as HTMLInputElement | null;
+      el?.focus();
+      el?.select();
+    });
   }
 
   function fillFromProductName(key: string, name: string) {
@@ -702,7 +727,12 @@ export function Purchases() {
                       <input
                         placeholder="باركود"
                         value={l.barcode}
-                        onChange={(e) => updateDraft(l.key, { barcode: e.target.value })}
+                        dir="ltr"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        data-line-key={l.key}
+                        data-field="barcode"
+                        onChange={(e) => updateDraft(l.key, { barcode: e.target.value, productId: '' })}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -717,8 +747,20 @@ export function Purchases() {
                         placeholder="اسم الصنف"
                         value={l.productName}
                         list="product-name-list"
+                        data-line-key={l.key}
+                        data-field="productName"
                         onChange={(e) => updateDraft(l.key, { productName: e.target.value })}
                         onBlur={(e) => fillFromProductName(l.key, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            fillFromProductName(l.key, (e.target as HTMLInputElement).value);
+                            const cost = document.querySelector(
+                              `input[data-line-key="${l.key}"][data-field="unitCost"]`,
+                            ) as HTMLInputElement | null;
+                            cost?.focus();
+                          }
+                        }}
                       />
                     </td>
                     <td>
