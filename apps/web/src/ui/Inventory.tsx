@@ -389,6 +389,7 @@ export function Inventory() {
           </div>
         )}
       </section>
+      )}
 
       <p className="purchase-footnote">
         إذا ظهر رصيد سالب بعد حذف فواتير وارد قديمة، اضغط «إصلاح الأرصدة» مرة واحدة. المبيعات تبقى مخصومة من
