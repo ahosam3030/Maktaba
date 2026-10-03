@@ -118,3 +118,17 @@
 - لا ترفع `.env` أو توكنات GitHub.
 - غيّر `JWT_SECRET` قبل أي نشر.
 - لا تعرض PostgreSQL على الإنترنت.
+
+
+---
+
+## استكشاف أخطاء شائعة
+
+| العرض | الحل |
+|--------|------|
+| صفحة المشتريات بيضاء | `git pull` ثم Ctrl+Shift+R — كان بسبب `check()` غير معرّف (أُصلح) |
+| `Property subtotal does not exist` | حدّث `reports.controller.ts` من `main` وأعد تشغيل API |
+| `Could not find declaration for express/multer` | من `apps/api`: `npm i -D @types/express @types/multer && npm i multer` |
+| Failed to fetch / الخادم غير متاح | شغّل `npm run start:dev` داخل `apps/api` |
+| الواجهة قديمة رغم التحديث | تأكد أنك في مجلد المشروع الصحيح ثم `git fetch && git reset --hard origin/main` |
+| ماسح الباركود يفتح DevTools في Chrome | الماسح يرسل اختصار متصفح؛ استخدم Edge أو زر مسح بالكاميرا أو أعد ضبط Prefix للماسح |

@@ -68,12 +68,27 @@ export type AuthResult = {
   organization: { id: string; name: string; slug: string; phone?: string | null };
 };
 
+
+/** تطبيع رسالة خطأ NestJS (string | string[]) */
+export function formatApiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== 'object') return fallback;
+  const msg = (payload as { message?: unknown }).message;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (Array.isArray(msg)) {
+    const parts = msg.map(String).map((s) => s.trim()).filter(Boolean);
+    if (parts.length) return parts.join(' — ');
+  }
+  const err = (payload as { error?: unknown }).error;
+  if (typeof err === 'string' && err.trim()) return err;
+  return fallback;
+}
+
 export async function registerOrganization(input: RegistrationInput): Promise<AuthResult> {
   const response = await fetch(`${API_URL}/auth/register`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.message || 'فشل إنشاء الحساب. راجع البيانات وحاول مرة أخرى.');
+  if (!response.ok) throw new Error(formatApiErrorMessage(result, 'فشل إنشاء الحساب. راجع البيانات وحاول مرة أخرى.'));
   return result as AuthResult;
 }
 
@@ -84,7 +99,7 @@ export async function login(email: string, password: string): Promise<AuthResult
     body: JSON.stringify({ email, password }),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.message || 'فشل تسجيل الدخول.');
+  if (!response.ok) throw new Error(formatApiErrorMessage(result, 'فشل تسجيل الدخول.'));
   return result as AuthResult;
 }
 
@@ -159,7 +174,7 @@ export async function apiRequest<T>(
       if (response.status === 401) {
         clearSession();
       }
-      throw new Error((result as { message?: string }).message || 'تعذر تنفيذ الطلب.');
+      throw new Error(formatApiErrorMessage(result, 'تعذر تنفيذ الطلب.'));
     }
     return result as T;
   } catch (err) {

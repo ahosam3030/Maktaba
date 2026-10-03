@@ -4131,3 +4131,56 @@ aside.sidebar.sidebar--collapsed {
   margin-bottom: 12px !important;
   padding-bottom: 10px !important;
 }
+
+
+/* === DENSE LAYOUT FIX 2026-10 === */
+/* تقليل المسافات الكبيرة بين الأقسام والعناوين */
+.page-stage { gap: 12px; }
+.page-title { margin: 0 0 4px; font-size: 22px; line-height: 1.25; }
+.page-subtitle, .topbar-titles p { margin: 0; font-size: 13px; color: var(--color-text-muted); }
+.topbar { margin-bottom: 14px !important; gap: 10px !important; }
+.panel, .section-card, .settings-panel, .purchase-section {
+  margin-bottom: 14px !important;
+}
+.panel-heading { margin-bottom: 10px !important; gap: 6px !important; }
+.panel-heading h2 { margin: 0 !important; font-size: 16px !important; }
+.panel-heading p { margin: 0 !important; font-size: 12px !important; }
+.stats-grid, .pur-stats, .kpi-grid, .rpt-kpi-grid {
+  gap: 10px !important;
+  margin-bottom: 14px !important;
+}
+.stat-card, .pur-stat, .rpt-kpi {
+  padding: 12px 14px !important;
+}
+.tab-bar, .settings-tabs, .report-tabs, .inv-tabs {
+  margin-bottom: 12px !important;
+  gap: 6px !important;
+}
+.form-grid { gap: 12px !important; }
+.form-actions { margin-top: 12px !important; gap: 10px !important; }
+.table-wrap { margin-top: 8px; }
+.sidebar nav, .side-nav, .nav-groups {
+  gap: 2px !important;
+}
+.nav-group-label {
+  margin: 8px 0 4px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  opacity: 0.75;
+}
+.sidebar a,
+.sidebar button.nav-link,
+.sidebar .nav-item,
+.side-nav a,
+.side-nav button {
+  padding: 8px 10px !important;
+  margin: 0 !important;
+  gap: 8px !important;
+  min-height: 36px !important;
+}
+.welcome-banner { margin-bottom: 14px !important; padding: 16px 18px !important; }
+.quick-grid { gap: 10px !important; margin-bottom: 14px !important; }
+.main-content { padding: 16px 18px 28px !important; }
+@media (max-width: 900px) {
+  .main-content { padding: 12px 12px 24px !important; }
+}

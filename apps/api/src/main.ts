@@ -25,7 +25,7 @@ async function bootstrap() {
   );
 
   // رؤوس أمان أساسية (HTTPS الكامل يكون عبر reverse proxy مثل Caddy/Nginx)
-  app.use((req: any, res: any, next: () => void) => {
+  app.use((_req: unknown, res: { setHeader: (k: string, v: string) => void }, next: () => void) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');

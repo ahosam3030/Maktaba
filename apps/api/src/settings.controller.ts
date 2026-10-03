@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Put, UseGuards } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { AuthUser, CurrentUser, JwtAuthGuard, PermissionsGuard } from './auth';
 import { AuditService } from './audit.service';
@@ -89,7 +89,7 @@ export class SettingsController {
   @Put('print')
   async putPrint(@CurrentUser() user: AuthUser, @Body() body: Partial<PrintSettingsDto>) {
     if (user.role !== 'OWNER' && user.role !== 'ADMIN') {
-      throw new BadRequestException('تعديل إعدادات الطباعة متاح للمالك أو الأدمن فقط.');
+      throw new ForbiddenException('تعديل إعدادات الطباعة متاح للمالك أو الأدمن فقط.');
     }
     const clean = sanitize(body);
     await this.prisma.organization.update({
