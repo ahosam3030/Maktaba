@@ -4,7 +4,7 @@ import {
   type PrintJob, type PrintService, type PrintChargeUnit,
 } from '../data/db';
 
-const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const money = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const makeReceiptNo = () => `S-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${String(Date.now()).slice(-5)}`;
 
 function escapeHtml(s: string) {

@@ -17,7 +17,7 @@ type Invoice = {
 type Payment = { id: string; supplierId: string; amount: number | string; paymentDate: string; method: string; supplier?: { name: string } };
 type PurchaseReturn = { id: string; invoiceId: string; total: number | string; returnDate: string; items: Array<{ productId: string; quantity: number | string }> };
 
-const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const money = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const num = (v: number | string) => Number(v) || 0;
 
 function escapeHtml(s: string) {
@@ -767,7 +767,7 @@ export function Purchases() {
                         onChange={(e) => updateDraft(l.key, { unitCost: e.target.value })}
                       />
                     </td>
-                    <td>{pp === null ? '—' : pp.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}</td>
+                    <td>{pp === null ? '—' : pp.toLocaleString('en-US', { maximumFractionDigits: 3 })}</td>
                     <td>
                       <input
                         type="number"
@@ -780,12 +780,12 @@ export function Purchases() {
                       />
                     </td>
                     <td style={{ color: profit === null ? undefined : profit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 600 }}>
-                      {profit === null ? '—' : profit.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}
+                      {profit === null ? '—' : profit.toLocaleString('en-US', { maximumFractionDigits: 3 })}
                     </td>
                     <td title="الكمية المتبقية في المخزون قبل هذه الفاتورة">
-                      {l.stock === null || l.stock === undefined ? '—' : l.stock.toLocaleString('ar-EG')}
+                      {l.stock === null || l.stock === undefined ? '—' : l.stock.toLocaleString('en-US')}
                     </td>
-                    <td>{lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}</td>
+                    <td>{lineTotal ? lineTotal.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0'}</td>
                     <td>
                       <button className="danger-outline-btn" type="button" onClick={() => removeDraftRow(l.key)}>حذف</button>
                     </td>

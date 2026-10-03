@@ -1582,3 +1582,9 @@ input:focus,select:focus,textarea:focus{
   .sales-page .sale-meta-grid{grid-template-columns:1fr}
   .sale-totals-grid{grid-template-columns:1fr}
 }
+
+/* Force Western (English) digits everywhere */
+html,body,input,button,select,textarea,table{
+  font-variant-numeric: lining-nums;
+  -webkit-locale: "en";
+}

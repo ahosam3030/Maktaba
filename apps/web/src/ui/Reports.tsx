@@ -4,9 +4,9 @@ import { ProductPriceReport } from './ProductPriceReport';
 import { IconChart, IconTag, IconPackage, IconRefresh } from './Icons';
 
 const money = (n: number) =>
-  `${(Number(n) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
-const qty = (n: number) => (Number(n) || 0).toLocaleString('ar-EG', { maximumFractionDigits: 3 });
-const pct = (n: number) => `${(Number(n) || 0).toLocaleString('ar-EG', { maximumFractionDigits: 1 })}%`;
+  `${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const qty = (n: number) => (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 3 });
+const pct = (n: number) => `${(Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 })}%`;
 
 type Summary = {
   period: { from: string | null; to: string | null };
@@ -71,12 +71,12 @@ function startOfYear() {
 
 function formatRange(from: string, to: string) {
   try {
-    const f = new Date(from + 'T12:00:00').toLocaleDateString('ar-EG', {
+    const f = new Date(from + 'T12:00:00').toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
-    const t = new Date(to + 'T12:00:00').toLocaleDateString('ar-EG', {
+    const t = new Date(to + 'T12:00:00').toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

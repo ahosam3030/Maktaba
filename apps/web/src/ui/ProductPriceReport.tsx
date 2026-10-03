@@ -313,7 +313,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                     <tr key={`${r.productName}-${r.unit}`}>
                       <td>{r.productName}</td>
                       <td>{r.unit}</td>
-                      <td>{r.lastPrice.toLocaleString('ar-EG')}</td>
+                      <td>{r.lastPrice.toLocaleString('en-US')}</td>
                       <td>
                         {r.change === null ? (
                           <span style={{ color: '#647b80' }}>—</span>
@@ -390,19 +390,19 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                 <div className="product-report-kpis">
                   <div>
                     <span>آخر سعر</span>
-                    <b>{s.last.toLocaleString('ar-EG')} ج</b>
+                    <b>{s.last.toLocaleString('en-US')} ج</b>
                   </div>
                   <div>
                     <span>أقل سعر</span>
-                    <b>{s.min.toLocaleString('ar-EG')}</b>
+                    <b>{s.min.toLocaleString('en-US')}</b>
                   </div>
                   <div>
                     <span>أعلى سعر</span>
-                    <b>{s.max.toLocaleString('ar-EG')}</b>
+                    <b>{s.max.toLocaleString('en-US')}</b>
                   </div>
                   <div>
                     <span>المتوسط</span>
-                    <b>{Math.round(s.avg).toLocaleString('ar-EG')}</b>
+                    <b>{Math.round(s.avg).toLocaleString('en-US')}</b>
                   </div>
                   <div>
                     <span>مرات الشراء</span>
@@ -466,11 +466,11 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                       {productReport.bySupplier.map((r) => (
                         <tr key={r.supplier}>
                           <td>{r.supplier}</td>
-                          <td>{r.last.toLocaleString('ar-EG')}</td>
+                          <td>{r.last.toLocaleString('en-US')}</td>
                           <td>{r.lastDate}</td>
-                          <td>{r.min.toLocaleString('ar-EG')}</td>
-                          <td>{r.max.toLocaleString('ar-EG')}</td>
-                          <td>{Math.round(r.avg).toLocaleString('ar-EG')}</td>
+                          <td>{r.min.toLocaleString('en-US')}</td>
+                          <td>{r.max.toLocaleString('en-US')}</td>
+                          <td>{Math.round(r.avg).toLocaleString('en-US')}</td>
                           <td>{r.count}</td>
                         </tr>
                       ))}
@@ -512,7 +512,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                             <td>
                               {r.unit} {r.quantity}
                             </td>
-                            <td>{r.unitCost.toLocaleString('ar-EG')}</td>
+                            <td>{r.unitCost.toLocaleString('en-US')}</td>
                             <td>{ch}</td>
                             <td dir="ltr">{r.invoiceNumber}</td>
                           </tr>

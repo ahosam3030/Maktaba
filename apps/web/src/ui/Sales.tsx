@@ -21,8 +21,8 @@ type Sale = {
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
   items: Array<{ id: string; productName: string; quantity: number | string; unitPrice: number | string; unitCost?: number | string; lineTotal: number | string }>;
 };
-const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
-const qty = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 3 });
+const money = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const qty = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 3 });
 
 function escapeHtml(s: string) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
@@ -273,7 +273,7 @@ export function Sales() {
     const tot = Number(sale.total);
     const sub = Number(sale.subtotal);
     const disc = Number(sale.discount);
-    const dateStr = new Date(sale.saleDate).toLocaleDateString('ar-EG');
+    const dateStr = new Date(sale.saleDate).toLocaleDateString('en-GB');
     const invNo = escapeHtml(sale.invoiceNumber);
     const customer = escapeHtml(sale.customerName || 'عميل نقدي');
     const wmText = escapeHtml(centerName);
@@ -979,9 +979,9 @@ export function Sales() {
                         onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
                       />
                     </td>
-                    <td>{cost === null || !Number.isFinite(cost) ? '—' : cost.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}</td>
+                    <td>{cost === null || !Number.isFinite(cost) ? '—' : cost.toLocaleString('en-US', { maximumFractionDigits: 3 })}</td>
                     <td style={{ color: profit === null ? undefined : profit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 600 }}>
-                      {profit === null ? '—' : profit.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}
+                      {profit === null ? '—' : profit.toLocaleString('en-US', { maximumFractionDigits: 3 })}
                     </td>
                     <td title="الكمية المتاحة في المخزون">
                       {stock === null ? '—' : (
@@ -992,7 +992,7 @@ export function Sales() {
                     </td>
                     <td>
                       <span style={{ fontWeight: 700 }}>
-                        {lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}
+                        {lineTotal ? lineTotal.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0'}
                       </span>
                     </td>
                     <td>
@@ -1112,7 +1112,7 @@ export function Sales() {
                   return (
                   <tr key={sale.id}>
                     <td>{sale.invoiceNumber}</td>
-                    <td>{new Date(sale.saleDate).toLocaleDateString('ar-EG')}</td>
+                    <td>{new Date(sale.saleDate).toLocaleDateString('en-GB')}</td>
                     <td>{sale.customerName || 'عميل نقدي'}</td>
                     <td>{money(Number(sale.total))}</td>
                     <td>{money(Number(sale.paidAmount))}</td>

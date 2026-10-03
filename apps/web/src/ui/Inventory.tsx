@@ -16,9 +16,9 @@ type InventoryItem = {
   stock: number;
 };
 
-const qty = (n: number) => n.toLocaleString('ar-EG', { maximumFractionDigits: 3 });
+const qty = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 3 });
 const money = (n: number) =>
-  `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+  `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);

@@ -6,7 +6,7 @@ type CashRow = {
   method: string; reference?: string | null; notes?: string | null;
 };
 
-const money = (n: number) => `${n.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
+const money = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const today = () => new Date().toISOString().slice(0, 10);
 const categories = {
   INCOME: ['إيراد عام', 'تحصيل مديونية عميل', 'إيراد خدمات طباعة', 'إيراد مبيعات', 'رأس مال / رصيد افتتاحي', 'أخرى'],
