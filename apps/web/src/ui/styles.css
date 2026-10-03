@@ -711,3 +711,6 @@
   margin-bottom:12px;
   box-sizing:border-box;
 }
+
+.reports-section-title{font-size:14px;font-weight:700;color:#3d555c;margin:22px 0 10px;padding-inline-start:2px}
+.reports-section-title:first-of-type{margin-top:8px}
