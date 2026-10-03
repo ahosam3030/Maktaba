@@ -949,3 +949,61 @@
   .rpt-kpi-grid--3{grid-template-columns:1fr}
   .rpt-toolbar-range{margin-inline-start:0;width:100%;text-align:center}
 }
+
+/* ===== Icons & visual accents ===== */
+.side-nav a{
+  display:flex !important;
+  align-items:center;
+  gap:10px;
+}
+.side-nav .nav-icon{
+  flex-shrink:0;
+  opacity:.85;
+}
+.side-nav a.active .nav-icon{opacity:1}
+.logout-btn{
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.secondary-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+.quick-card{
+  text-align:right;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+}
+.quick-card-icon{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  background:linear-gradient(145deg,#e8f7f3,#d5efe9);
+  color:#0f766e;
+  display:grid;
+  place-items:center;
+  margin-bottom:4px;
+}
+.auth-card-icon{
+  width:52px;
+  height:52px;
+  border-radius:16px;
+  background:linear-gradient(145deg,#e8f7f3,#d5efe9);
+  color:#0f766e;
+  display:grid;
+  place-items:center;
+  margin:0 auto 12px;
+}
+.rpt-tabs button{
+  flex-direction:row !important;
+  align-items:center;
+  gap:12px;
+}
+.rpt-tab-icon{flex-shrink:0;opacity:.9}
+.rpt-tab-text{display:flex;flex-direction:column;gap:3px;text-align:right}
+.rpt-tabs button.active .rpt-tab-icon{opacity:1}

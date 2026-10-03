@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
 import { ProductPriceReport } from './ProductPriceReport';
+import { IconChart, IconTag, IconPackage, IconRefresh } from './Icons';
 
 const money = (n: number) =>
   `${(Number(n) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
@@ -208,7 +209,8 @@ export function Reports() {
           <p>رأس المال · الأرباح · أسعار الشراء · المخزون</p>
         </div>
         <button className="secondary-btn" type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? 'جارٍ التحديث...' : 'تحديث البيانات'}
+          <IconRefresh size={16} />
+          <span>{loading ? 'جارٍ التحديث...' : 'تحديث البيانات'}</span>
         </button>
       </div>
 
@@ -221,9 +223,9 @@ export function Reports() {
       <div className="rpt-tabs" role="tablist">
         {(
           [
-            { id: 'overview' as const, label: 'الملخص المالي', desc: 'رأس مال وأرباح' },
-            { id: 'prices' as const, label: 'تاريخ الأسعار', desc: 'مقارنة الموردين' },
-            { id: 'stock' as const, label: 'أرصدة المخزون', desc: 'كميات وقيم' },
+            { id: 'overview' as const, label: 'الملخص المالي', desc: 'رأس مال وأرباح', Icon: IconChart },
+            { id: 'prices' as const, label: 'تاريخ الأسعار', desc: 'مقارنة الموردين', Icon: IconTag },
+            { id: 'stock' as const, label: 'أرصدة المخزون', desc: 'كميات وقيم', Icon: IconPackage },
           ] as const
         ).map((t) => (
           <button
@@ -234,8 +236,11 @@ export function Reports() {
             className={tab === t.id ? 'active' : ''}
             onClick={() => setTab(t.id)}
           >
-            <strong>{t.label}</strong>
-            <span>{t.desc}</span>
+            <t.Icon size={22} className="rpt-tab-icon" />
+            <div className="rpt-tab-text">
+              <strong>{t.label}</strong>
+              <span>{t.desc}</span>
+            </div>
           </button>
         ))}
       </div>

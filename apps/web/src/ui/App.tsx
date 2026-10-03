@@ -19,6 +19,7 @@ import { Printing } from './Printing';
 import { Accounting } from './Accounting';
 import { Settings } from './Settings';
 import { Reports } from './Reports';
+import { SectionIcon, IconLogout, IconLock, type SectionIconKey } from './Icons';
 
 function isStrongPassword(password: string): boolean {
   if (!password) return false;
@@ -263,14 +264,20 @@ export function App() {
   const roleLabel =
     sessionUser?.role === 'OWNER' ? 'مالك' : sessionUser?.role === 'ADMIN' ? 'أدمن' : 'مستخدم';
 
-  const quickLinks: Array<{ key: typeof activeSection; label: string; desc: string; show: boolean }> = [
-    { key: 'purchases', label: 'المشتريات', desc: 'فواتير الوارد والموردين', show: hasPermission(sessionUser, 'purchases') },
-    { key: 'sales', label: 'المبيعات', desc: 'نقطة البيع والفواتير', show: hasPermission(sessionUser, 'sales') },
-    { key: 'inventory', label: 'المخزون', desc: 'الأرصدة والتسويات', show: hasPermission(sessionUser, 'inventory') },
-    { key: 'accounting', label: 'الخزينة', desc: 'الوارد والمنصرف', show: hasPermission(sessionUser, 'accounting') },
-    { key: 'reports', label: 'التقارير', desc: 'الأرباح ورأس المال', show: hasPermission(sessionUser, 'reports') },
-    { key: 'printing', label: 'الخدمات', desc: 'الخدمات والإيصالات', show: hasPermission(sessionUser, 'printing') },
-    { key: 'settings', label: 'الإعدادات', desc: 'حسابات، طباعة، الجهاز', show: isLoggedIn },
+  const quickLinks: Array<{
+    key: typeof activeSection;
+    icon: SectionIconKey;
+    label: string;
+    desc: string;
+    show: boolean;
+  }> = [
+    { key: 'purchases', icon: 'purchases', label: 'المشتريات', desc: 'فواتير الوارد والموردين', show: hasPermission(sessionUser, 'purchases') },
+    { key: 'sales', icon: 'sales', label: 'المبيعات', desc: 'نقطة البيع والفواتير', show: hasPermission(sessionUser, 'sales') },
+    { key: 'inventory', icon: 'inventory', label: 'المخزون', desc: 'الأرصدة والتسويات', show: hasPermission(sessionUser, 'inventory') },
+    { key: 'accounting', icon: 'accounting', label: 'الخزينة', desc: 'الوارد والمنصرف', show: hasPermission(sessionUser, 'accounting') },
+    { key: 'reports', icon: 'reports', label: 'التقارير', desc: 'الأرباح ورأس المال', show: hasPermission(sessionUser, 'reports') },
+    { key: 'printing', icon: 'printing', label: 'الخدمات', desc: 'الخدمات والإيصالات', show: hasPermission(sessionUser, 'printing') },
+    { key: 'settings', icon: 'settings', label: 'الإعدادات', desc: 'حسابات، طباعة، الجهاز', show: isLoggedIn },
   ];
 
   return (
@@ -289,7 +296,8 @@ export function App() {
             href="#dashboard"
             onClick={() => setActiveSection('dashboard')}
           >
-            الرئيسية
+            <SectionIcon name="dashboard" className="nav-icon" />
+            <span>الرئيسية</span>
           </a>
           {hasPermission(sessionUser, 'purchases') && (
             <a
@@ -297,7 +305,8 @@ export function App() {
               href="#purchases"
               onClick={() => setActiveSection('purchases')}
             >
-              المشتريات
+              <SectionIcon name="purchases" className="nav-icon" />
+              <span>المشتريات</span>
             </a>
           )}
           {hasPermission(sessionUser, 'sales') && (
@@ -306,7 +315,8 @@ export function App() {
               href="#sales"
               onClick={() => setActiveSection('sales')}
             >
-              المبيعات
+              <SectionIcon name="sales" className="nav-icon" />
+              <span>المبيعات</span>
             </a>
           )}
           {hasPermission(sessionUser, 'inventory') && (
@@ -315,7 +325,8 @@ export function App() {
               href="#inventory"
               onClick={() => setActiveSection('inventory')}
             >
-              المخزون
+              <SectionIcon name="inventory" className="nav-icon" />
+              <span>المخزون</span>
             </a>
           )}
           {hasPermission(sessionUser, 'accounting') && (
@@ -324,7 +335,8 @@ export function App() {
               href="#accounting"
               onClick={() => setActiveSection('accounting')}
             >
-              الخزينة
+              <SectionIcon name="accounting" className="nav-icon" />
+              <span>الخزينة</span>
             </a>
           )}
           {hasPermission(sessionUser, 'reports') && (
@@ -333,7 +345,8 @@ export function App() {
               href="#reports"
               onClick={() => setActiveSection('reports')}
             >
-              التقارير
+              <SectionIcon name="reports" className="nav-icon" />
+              <span>التقارير</span>
             </a>
           )}
           {hasPermission(sessionUser, 'printing') && (
@@ -342,7 +355,8 @@ export function App() {
               href="#printing"
               onClick={() => setActiveSection('printing')}
             >
-              الخدمات والإيصالات
+              <SectionIcon name="printing" className="nav-icon" />
+              <span>الخدمات والإيصالات</span>
             </a>
           )}
           {isLoggedIn && (
@@ -351,7 +365,8 @@ export function App() {
               href="#settings"
               onClick={() => setActiveSection('settings')}
             >
-              الإعدادات
+              <SectionIcon name="settings" className="nav-icon" />
+              <span>الإعدادات</span>
             </a>
           )}
         </nav>
@@ -363,8 +378,9 @@ export function App() {
                 <span>{sessionOrg?.name}</span>
                 <span className="role-pill">{roleLabel}</span>
               </div>
-              <button type="button" className="secondary-btn small" style={{ width: '100%' }} onClick={handleLogout}>
-                تسجيل الخروج
+              <button type="button" className="secondary-btn small logout-btn" style={{ width: '100%' }} onClick={handleLogout}>
+                <IconLogout size={16} />
+                <span>تسجيل الخروج</span>
               </button>
             </>
           ) : (
@@ -421,6 +437,9 @@ export function App() {
             </section>
 
             <section className="auth-card">
+              <div className="auth-card-icon">
+                <IconLock size={28} />
+              </div>
               <h3>تسجيل الدخول</h3>
               <p className="muted-sm">
                 للموظفين والمالك. لا يمكن إنشاء حسابات من هنا — المالك فقط يضيف المستخدمين من الإعدادات بعد الدخول.
@@ -506,6 +525,9 @@ export function App() {
                     className="quick-card"
                     onClick={() => setActiveSection(l.key)}
                   >
+                    <span className="quick-card-icon">
+                      <SectionIcon name={l.icon} size={22} />
+                    </span>
                     <strong>{l.label}</strong>
                     <span>{l.desc}</span>
                   </button>
