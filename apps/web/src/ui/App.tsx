@@ -57,6 +57,21 @@ export function App() {
   const [activeSection, setActiveSection] = useState<
     'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'settings'
   >('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try {
+      const v = localStorage.getItem('maktaba_sidebar_open');
+      if (v === '0') return false;
+      if (v === '1') return true;
+    } catch { /* ignore */ }
+    return true;
+  });
+  function toggleSidebar() {
+    setSidebarOpen((open) => {
+      const next = !open;
+      try { localStorage.setItem('maktaba_sidebar_open', next ? '1' : '0'); } catch { /* ignore */ }
+      return next;
+    });
+  }
   const [confirmSlug, setConfirmSlug] = useState('');
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState('');
@@ -299,8 +314,20 @@ export function App() {
   ];
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell${sidebarOpen ? "" : " app-shell--sidebar-collapsed"}`}>
+      <aside className={`sidebar${sidebarOpen ? "" : " sidebar--collapsed"}`} aria-hidden={!sidebarOpen}>
+        <button
+          type="button"
+          className="sidebar-close-btn"
+          tabIndex={-1}
+          title="إخفاء القائمة"
+          aria-label="إخفاء القائمة"
+          onClick={toggleSidebar}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
         <div className="brand">
           <BrandLogo size={46} className="brand-logo" />
           <div className="brand-copy">
@@ -377,6 +404,19 @@ export function App() {
       <main className="main-content page-stage" id="dashboard" key={activeSection}>
         <div className="topbar">
           <div className="topbar-titles">
+          <div className="topbar-title-row">
+          <button
+            type="button"
+            className="sidebar-toggle-btn"
+            title={sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}
+            aria-label={sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'}
+            aria-expanded={sidebarOpen}
+            onClick={toggleSidebar}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
           <h1 className="page-title">
             {activeSection === 'dashboard'
               ? isLoggedIn
@@ -398,6 +438,7 @@ export function App() {
                               ? 'الإعدادات'
                               : 'لوحة التحكم'}
           </h1>
+          </div>
           <p className="topbar-sub">{isLoggedIn ? (sessionOrg?.name || 'نظام إدارة المكتبة') : 'أدخل بياناتك للمتابعة'}</p>
           </div>
           <div className="status-pills">
