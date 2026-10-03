@@ -258,27 +258,31 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
     setBusy(true);
     setNotice('');
     try {
-      const job = await apiRequest<Receipt>('/service-receipts', {
-        method: 'POST',
-        body: JSON.stringify({
-          receiptNo: receiptNo.trim(),
-          receiptDate: date,
-          customerName: customerName.trim() || undefined,
-          extraFees: extras,
-          discount: discountN,
-          total,
-          paidAmount: Math.min(total, paidN),
-          notes: notes.trim() || undefined,
-          items: valid.map((l) => ({
-            serviceId: l.serviceId || undefined,
-            serviceName: l.serviceName,
-            description: l.description || undefined,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            lineTotal: l.lineTotal,
-          })),
-        }),
-      });
+      const job = await apiRequest<Receipt>(
+        '/service-receipts',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            receiptNo: receiptNo.trim(),
+            receiptDate: date,
+            customerName: customerName.trim() || undefined,
+            extraFees: extras,
+            discount: discountN,
+            total,
+            paidAmount: Math.min(total, paidN),
+            notes: notes.trim() || undefined,
+            items: valid.map((l) => ({
+              serviceId: l.serviceId || undefined,
+              serviceName: l.serviceName,
+              description: l.description || undefined,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              lineTotal: l.lineTotal,
+            })),
+          }),
+        },
+        { queueLabel: 'حفظ فاتورة خدمات' },
+      );
       setNotice(
         `تم إنشاء الفاتورة ${job.receiptNo}` + (job.paid > 0 ? ' وتسجيل المدفوع في الخزينة.' : '.'),
       );
@@ -316,7 +320,7 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
     if (!confirm(`حذف الإيصال ${job.receiptNo}؟\nسيتم إلغاء قيده من الخزينة إن وُجد.`)) return;
     setBusy(true);
     try {
-      await apiRequest(`/service-receipts/${job.id}`, { method: 'DELETE' });
+      await apiRequest(`/service-receipts/${job.id}`, { method: 'DELETE' }, { queueLabel: 'حذف — فاتورة خدمات' });
       setNotice(`تم حذف ${job.receiptNo}.`);
       await loadAll();
     } catch (e) {
@@ -339,13 +343,13 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
         await apiRequest(`/services/${editingId}`, {
           method: 'PATCH',
           body: JSON.stringify({ name, unitPrice: price, chargeUnit: editUnit }),
-        });
+        }, { queueLabel: 'تعديل — خدمة' });
         setNotice('تم تحديث الخدمة على الخادم.');
       } else {
         await apiRequest('/services', {
           method: 'POST',
           body: JSON.stringify({ name, unitPrice: price, chargeUnit: editUnit }),
-        });
+        }, { queueLabel: 'خدمة' });
         setNotice('تم إضافة الخدمة على الخادم.');
       }
       setEditName('');
@@ -374,7 +378,7 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
       await apiRequest(`/services/${s.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: !s.active }),
-      });
+      }, { queueLabel: 'تعديل — خدمة' });
       await loadAll();
     } catch (e) {
       setNotice(e instanceof Error ? e.message : 'تعذر التحديث.');
@@ -387,7 +391,7 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
     if (!confirm(`حذف الخدمة «${s.name}»؟`)) return;
     setBusy(true);
     try {
-      const res = await apiRequest<{ deactivated?: boolean }>(`/services/${s.id}`, { method: 'DELETE' });
+      const res = await apiRequest<{ deactivated?: boolean }>(`/services/${s.id}`, { method: 'DELETE' }, { queueLabel: 'حذف — خدمة' });
       if (serviceId === s.id) setServiceId('');
       setNotice(res.deactivated ? 'تم تعطيل الخدمة لارتباطها بإيصالات.' : 'تم حذف الخدمة.');
       await loadAll();

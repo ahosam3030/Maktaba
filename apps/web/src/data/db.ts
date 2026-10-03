@@ -77,6 +77,20 @@ export const DEFAULT_PRINT_SERVICES: Omit<PrintService, 'id' | 'createdAt' | 'up
   { name: 'خدمة عامة / أخرى', unitPrice: 0, chargeUnit: 'job', active: true, sortOrder: 8 },
 ];
 
+/** طلبات معلقة للمزامنة مع الخادم عند عودة الاتصال */
+export interface OutboxItem {
+  id: string;
+  method: string;
+  path: string;
+  body: string | null;
+  label: string;
+  createdAt: string;
+  status: 'pending' | 'processing' | 'failed' | 'done';
+  attempts: number;
+  lastError?: string;
+  permanent?: boolean;
+}
+
 class LibraryDatabase extends Dexie {
   organizations!: Table<LocalOrganization, string>;
   syncQueue!: Table<SyncOperation, string>;
@@ -89,6 +103,7 @@ class LibraryDatabase extends Dexie {
   printPricing!: Table<PrintPricing, string>;
   printServices!: Table<PrintService, string>;
   cashTransactions!: Table<CashTransaction, string>;
+  outbox!: Table<OutboxItem, string>;
 
   constructor() {
     super('library-erp-local');
@@ -123,6 +138,20 @@ class LibraryDatabase extends Dexie {
       printPricing: 'id, updatedAt',
       printServices: 'id, name, active, sortOrder, updatedAt',
       cashTransactions: 'id, kind, date, category, method, reference, createdAt',
+    });
+    this.version(6).stores({
+      organizations: 'id, slug, name, localOnly, updatedAt',
+      syncQueue: 'id, entity, action, status, createdAt',
+      suppliers: 'id, name, phone, createdAt',
+      products: 'id, name, barcode, category, createdAt',
+      purchaseInvoices: 'id, invoiceNo, supplierId, supplierName, date, createdAt',
+      supplierPayments: 'id, supplierId, supplierName, date',
+      purchaseReturns: 'id, returnNo, invoiceId, supplierId, date',
+      printJobs: 'id, receiptNo, date, service, serviceId, serviceName, customerName, createdAt',
+      printPricing: 'id, updatedAt',
+      printServices: 'id, name, active, sortOrder, updatedAt',
+      cashTransactions: 'id, kind, date, category, method, reference, createdAt',
+      outbox: 'id, status, createdAt, path',
     });
   }
 }

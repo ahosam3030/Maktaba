@@ -210,7 +210,7 @@ export function Purchases() {
     let fail = 0;
     for (const id of ids) {
       try {
-        await apiRequest(`/purchases/invoices/${id}`, { method: 'DELETE' });
+        await apiRequest(`/purchases/invoices/${id}`, { method: 'DELETE' }, { queueLabel: 'حذف — حفظ فاتورة وارد' });
         ok += 1;
       } catch {
         fail += 1;
@@ -393,9 +393,9 @@ export function Purchases() {
       const supplier = await apiRequest<Supplier>('/suppliers', {
         method: 'POST',
         body: JSON.stringify({ name: supplierName.trim() }),
-      });
+      }, { queueLabel: 'حفظ/تأكيد مورد' });
       if (editingInvoiceId) {
-        await apiRequest(`/purchases/invoices/${editingInvoiceId}`, { method: 'DELETE' });
+        await apiRequest(`/purchases/invoices/${editingInvoiceId}`, { method: 'DELETE' }, { queueLabel: 'حذف — حفظ فاتورة وارد' });
       }
       const created = await apiRequest<Invoice>('/purchases/invoices', {
         method: 'POST',
@@ -438,7 +438,7 @@ export function Purchases() {
       await apiRequest('/suppliers/payments', {
         method: 'POST',
         body: JSON.stringify({ supplierId: paymentSupplierId, amount, paymentDate, method: 'CASH' }),
-      });
+      }, { queueLabel: 'دفعة مورد' });
       setNotice('تم تسجيل الدفعة.');
       setPaymentAmount('');
       await refresh();
@@ -450,7 +450,7 @@ export function Purchases() {
   async function deletePurchaseInvoice(invoice: Invoice) {
     if (!confirm(`حذف فاتورة الوارد رقم ${invoice.invoiceNumber}؟\nسيتم خصم الكميات من المخزون.`)) return;
     try {
-      await apiRequest(`/purchases/invoices/${invoice.id}`, { method: 'DELETE' });
+      await apiRequest(`/purchases/invoices/${invoice.id}`, { method: 'DELETE' }, { queueLabel: 'حذف — حفظ فاتورة وارد' });
       setNotice(`تم حذف فاتورة الوارد ${invoice.invoiceNumber}.`);
       await refresh();
     } catch (e) {

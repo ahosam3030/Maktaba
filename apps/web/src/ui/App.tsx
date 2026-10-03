@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { startSyncWatchers, processSyncQueue, subscribeSyncQueue, countPending } from '../data/sync';
 import { db, type LocalOrganization } from '../data/db';
 import {
   apiHealth,
@@ -35,6 +36,8 @@ type AuthMode = 'login' | 'register';
 
 export function App() {
   const [connection, setConnection] = useState<ConnectionState>(navigator.onLine ? 'checking' : 'offline');
+  const [pendingSync, setPendingSync] = useState(0);
+  const [syncBusy, setSyncBusy] = useState(false);
   const [apiStatus, setApiStatus] = useState('جارٍ الفحص');
   const [organizations, setOrganizations] = useState<LocalOrganization[]>([]);
   const [name, setName] = useState('');
@@ -84,7 +87,12 @@ export function App() {
   useEffect(() => {
     void refreshLocal();
     void checkApi();
-    const onOnline = () => void checkApi();
+    const unsubSync = subscribeSyncQueue(setPendingSync);
+    const stopWatchers = startSyncWatchers();
+    const onOnline = () => {
+      void checkApi();
+      void processSyncQueue();
+    };
     const onOffline = () => {
       setConnection('offline');
       setApiStatus('غير متصل');
@@ -92,6 +100,8 @@ export function App() {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     return () => {
+      unsubSync();
+      stopWatchers();
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
@@ -419,6 +429,33 @@ export function App() {
             <span className={`pill ${isLoggedIn ? 'ok' : 'warn'}`}>
               {isLoggedIn ? 'مسجّل الدخول' : 'غير مسجّل'}
             </span>
+            {pendingSync > 0 && (
+              <span className="pill warn" title="عمليات محفوظة محليًا بانتظار المزامنة">
+                مزامنة معلّقة: {pendingSync}
+              </span>
+            )}
+            {pendingSync > 0 && (
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ padding: '0.25rem 0.65rem', fontSize: '0.8rem' }}
+                disabled={syncBusy || connection !== 'online'}
+                onClick={async () => {
+                  setSyncBusy(true);
+                  try {
+                    const r = await processSyncQueue();
+                    if (r.remaining === 0) setApiStatus(`تمت مزامنة ${r.synced} عملية`);
+                    else setApiStatus(`مزامنة: ${r.synced} نجحت · ${r.remaining} متبقية`);
+                  } catch {
+                    setApiStatus('تعذرت المزامنة');
+                  } finally {
+                    setSyncBusy(false);
+                  }
+                }}
+              >
+                {syncBusy ? 'جارٍ المزامنة…' : 'مزامنة الآن'}
+              </button>
+            )}
             <span className="pill muted">{apiStatus}</span>
           </div>
         </div>

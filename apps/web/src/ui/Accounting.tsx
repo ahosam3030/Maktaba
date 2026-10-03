@@ -83,7 +83,7 @@ export function Accounting() {
           reference: reference.trim() || undefined,
           notes: notes.trim() || undefined,
         }),
-      });
+      }, { queueLabel: 'حفظ حركة خزينة' });
       setNotice('تم حفظ الحركة على الخادم.');
       setAmount(''); setReference(''); setNotes('');
       await refresh();
@@ -94,7 +94,7 @@ export function Accounting() {
 
   async function remove(id: string) {
     try {
-      await apiRequest(`/accounting/cash-transactions/${id}`, { method: 'DELETE' });
+      await apiRequest(`/accounting/cash-transactions/${id}`, { method: 'DELETE' }, { queueLabel: 'حذف حركة خزينة' });
       setNotice('تم حذف الحركة.');
       await refresh();
     } catch (e) {

@@ -88,22 +88,101 @@ export async function login(email: string, password: string): Promise<AuthResult
   return result as AuthResult;
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
-    },
-  });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearSession();
-    }
-    throw new Error(result.message || 'تعذر تنفيذ الطلب.');
+export type ApiRequestOptions = {
+  /** عند انقطاع الشبكة: ضع الطلب في طابور المزامنة بدل الفشل فورًا (لطرق الكتابة فقط) */
+  queueOffline?: boolean;
+  /** وصف عربي يظهر في قائمة الانتظار */
+  queueLabel?: string;
+};
+
+export class OfflineQueuedError extends Error {
+  readonly queued = true;
+  readonly queueId: string;
+  constructor(queueId: string, label: string) {
+    super(`تم الحفظ محليًا وسيُزامَن عند عودة الاتصال — ${label}`);
+    this.name = 'OfflineQueuedError';
+    this.queueId = queueId;
   }
-  return result as T;
 }
+
+function isMutatingMethod(method: string | undefined): boolean {
+  const m = (method || 'GET').toUpperCase();
+  return m === 'POST' || m === 'PUT' || m === 'PATCH' || m === 'DELETE';
+}
+
+function isNetworkFailure(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  if (err instanceof TypeError) return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /failed to fetch|network|load failed|networkerror/i.test(msg);
+}
+
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const method = (init.method || 'GET').toUpperCase();
+  const wantQueue = options.queueOffline !== false && isMutatingMethod(method);
+
+  if (wantQueue && typeof navigator !== 'undefined' && !navigator.onLine) {
+    const { enqueueMutation } = await import('./sync');
+    let body: unknown = undefined;
+    if (typeof init.body === 'string' && init.body) {
+      try {
+        body = JSON.parse(init.body);
+      } catch {
+        body = init.body;
+      }
+    }
+    const item = await enqueueMutation({
+      method,
+      path,
+      body,
+      label: options.queueLabel || `${method} ${path}`,
+    });
+    throw new OfflineQueuedError(item.id, item.label);
+  }
+
+  const token = getToken();
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) {
+        clearSession();
+      }
+      throw new Error((result as { message?: string }).message || 'تعذر تنفيذ الطلب.');
+    }
+    return result as T;
+  } catch (err) {
+    if (err instanceof OfflineQueuedError) throw err;
+    if (wantQueue && isNetworkFailure(err)) {
+      const { enqueueMutation } = await import('./sync');
+      let body: unknown = undefined;
+      if (typeof init.body === 'string' && init.body) {
+        try {
+          body = JSON.parse(init.body);
+        } catch {
+          body = init.body;
+        }
+      }
+      const item = await enqueueMutation({
+        method,
+        path,
+        body,
+        label: options.queueLabel || `${method} ${path}`,
+      });
+      throw new OfflineQueuedError(item.id, item.label);
+    }
+    throw err;
+  }
+}
+

@@ -719,23 +719,27 @@ export function Sales() {
     if (!Number.isFinite(paid) || paid < 0 || paid > net) { setNotice('المبلغ المدفوع يجب أن يكون بين صفر وإجمالي الفاتورة.'); return; }
     setSaving(true); setNotice('');
     try {
-      const sale = await apiRequest<Sale>('/sales', {
-        method: 'POST',
-        body: JSON.stringify({
-          invoiceNumber: inv,
-          saleDate: saleDate || undefined,
-          customerName: customerName.trim() || undefined,
-          discount: disc,
-          paidAmount: paid,
-          items: lines.map((line) => ({
-            productId: line.productId || undefined,
-            productName: line.query.trim(),
-            unit: line.unit || (line.productId ? 'قطعة' : 'خدمة'),
-            quantity: Number(line.quantity),
-            unitPrice: Number(line.unitPrice),
-          })),
-        }),
-      });
+      const sale = await apiRequest<Sale>(
+        '/sales',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            invoiceNumber: inv,
+            saleDate: saleDate || undefined,
+            customerName: customerName.trim() || undefined,
+            discount: disc,
+            paidAmount: paid,
+            items: lines.map((line) => ({
+              productId: line.productId || undefined,
+              productName: line.query.trim(),
+              unit: line.unit || (line.productId ? 'قطعة' : 'خدمة'),
+              quantity: Number(line.quantity),
+              unitPrice: Number(line.unitPrice),
+            })),
+          }),
+        },
+        { queueLabel: 'حفظ فاتورة بيع' },
+      );
       setNotice(`تم حفظ فاتورة البيع ${sale.invoiceNumber}` + (paid > 0 ? ' وتسجيل التحصيل في الخزينة.' : '.'));
       await refresh();
       if (andPrint) printSale(sale);
@@ -747,7 +751,7 @@ export function Sales() {
     if (!confirm(`حذف فاتورة البيع رقم ${sale.invoiceNumber}؟\nسيتم إرجاع رصيد البضاعة للمخزون إن وُجد.`)) return;
     setSaving(true); setNotice('');
     try {
-      await apiRequest(`/sales/${sale.id}`, { method: 'DELETE' });
+      await apiRequest(`/sales/${sale.id}`, { method: 'DELETE' }, { queueLabel: 'حذف — حفظ فاتورة بيع' });
       setNotice(`تم حذف فاتورة ${sale.invoiceNumber}.`);
       await refresh();
     } catch (e) {

@@ -157,13 +157,13 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
         await apiRequest(`/inventory/products/${editId}`, {
           method: 'PATCH',
           body: JSON.stringify(payload),
-        });
+        }, { queueLabel: 'تعديل — منتج' });
         setNotice('تم حفظ تعديلات الصنف.');
       } else {
         await apiRequest('/inventory/products', {
           method: 'POST',
           body: JSON.stringify(payload),
-        });
+        }, { queueLabel: 'منتج' });
         setNotice('تم إضافة الصنف.');
       }
       setEditId(null);
@@ -186,7 +186,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
     }
     setBusy(true);
     try {
-      await apiRequest(`/inventory/products/${item.id}`, { method: 'DELETE' });
+      await apiRequest(`/inventory/products/${item.id}`, { method: 'DELETE' }, { queueLabel: 'حذف — منتج' });
       setNotice(`تم حذف «${item.name}».`);
       if (editId === item.id) startCreate();
       await refresh();
@@ -203,7 +203,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
       await apiRequest(`/inventory/products/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: !item.active }),
-      });
+      }, { queueLabel: 'تعديل — منتج' });
       setNotice(item.active ? `تم تعطيل «${item.name}».` : `تم تفعيل «${item.name}».`);
       await refresh();
     } catch (e) {
@@ -229,7 +229,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
           reason: reason.trim(),
           notes: adjNotes.trim() || undefined,
         }),
-      });
+      }, { queueLabel: 'تسوية مخزون' });
       setNotice('تم تسجيل التسوية.');
       setQuantity('');
       setAdjNotes('');
