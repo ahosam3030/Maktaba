@@ -220,11 +220,15 @@ export class UsersController {
     };
   }
 
+  /** إيقاف حساب بدل الحذف الصلب (لتجنب أخطاء FK من الحركات المالية) */
   @Delete(':id')
   @RequirePermission('users')
   async remove(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
     if (actor.role !== 'OWNER') {
-      throw new ForbiddenException('حذف المستخدمين متاح لمالك المكتبة فقط.');
+      throw new ForbiddenException('إيقاف المستخدمين متاح لمالك المكتبة فقط.');
+    }
+    if (id === actor.userId) {
+      throw new BadRequestException('لا يمكن إيقاف حسابك الحالي من هنا.');
     }
     const target = await this.prisma.user.findFirst({
       where: { id, organizationId: actor.organizationId },
@@ -233,25 +237,28 @@ export class UsersController {
 
     if (target.role === 'OWNER') {
       const owners = await this.prisma.user.count({
-        where: { organizationId: actor.organizationId, role: 'OWNER' },
+        where: { organizationId: actor.organizationId, role: 'OWNER', active: true },
       });
       if (owners <= 1) {
         throw new BadRequestException(
-          'لا يمكن حذف آخر مالك. أنشئ حساب مالك ببياناتك أولًا ثم احذف الحساب الافتراضي.',
+          'لا يمكن إيقاف آخر مالك نشط. أنشئ مالكًا آخر أولًا.',
         );
       }
     }
 
-    await this.prisma.user.delete({ where: { id: target.id } });
+    await this.prisma.user.update({
+      where: { id: target.id },
+      data: { active: false },
+    });
     await this.audit.log({
       organizationId: actor.organizationId,
       userId: actor.userId,
-      action: 'USER_DELETE',
+      action: 'USER_DEACTIVATE',
       entity: 'User',
       entityId: target.id,
       meta: { email: target.email, role: target.role },
       success: true,
     });
-    return { ok: true, id: target.id, email: target.email };
+    return { ok: true, id: target.id, email: target.email, active: false };
   }
 }

@@ -102,6 +102,7 @@ model Product {
 
   @@unique([organizationId, name])
   @@index([organizationId, name])
+  @@unique([organizationId, barcode])
   @@index([organizationId, barcode])
   @@index([organizationId, active])
 }

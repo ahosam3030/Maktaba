@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 import { computeStockPieces, assertSufficientStock, roundStock, piecesFromSaleLine } from './stock.util';
+import { CreateSaleDto } from './dto/sales.dto';
+import { AuditService } from './audit.service';
 
 type SaleDraft = {
   productId?: string;
@@ -16,7 +18,7 @@ type SaleDraft = {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @RequirePermission('sales')
 export class SalesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
@@ -31,16 +33,7 @@ export class SalesController {
   @Post()
   async create(
     @CurrentUser() user: AuthUser,
-    @Body()
-    body: {
-      invoiceNumber?: string;
-      saleDate?: string;
-      customerName?: string;
-      discount?: number;
-      paidAmount?: number;
-      notes?: string;
-      items?: SaleDraft[];
-    },
+    @Body() body: CreateSaleDto,
   ) {
     const invoiceNumber = body.invoiceNumber?.trim();
     if (!invoiceNumber || !Array.isArray(body.items) || body.items.length === 0) {
@@ -258,6 +251,15 @@ export class SalesController {
       });
       await tx.saleItem.deleteMany({ where: { saleId: sale.id } });
       await tx.sale.delete({ where: { id: sale.id } });
+      await this.audit.log({
+        organizationId: user.organizationId,
+        userId: user.userId,
+        action: 'SALE_DELETE',
+        entity: 'Sale',
+        entityId: sale.id,
+        meta: { invoiceNumber: sale.invoiceNumber },
+        success: true,
+      });
       return { ok: true, invoiceNumber: sale.invoiceNumber };
     },
     {

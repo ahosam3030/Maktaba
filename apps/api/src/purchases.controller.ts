@@ -1,3 +1,4 @@
+import { CreatePurchaseInvoiceDto, SupplierPaymentDto } from './dto/purchases.dto';
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
@@ -47,7 +48,7 @@ export class PurchaseInvoicesController {
   }
 
   @Post()
-  async create(@CurrentUser() user: AuthUser, @Body() body: InvoiceInput) {
+  async create(@CurrentUser() user: AuthUser, @Body() body: CreatePurchaseInvoiceDto) {
     const supplierId = body.supplierId?.trim();
     const invoiceNumber = body.invoiceNumber?.trim();
     if (!supplierId || !invoiceNumber || !Array.isArray(body.items) || body.items.length === 0) {
@@ -207,7 +208,7 @@ export class SupplierPaymentsController {
   }
 
   @Post()
-  async create(@CurrentUser() user: AuthUser, @Body() body: { supplierId?: string; invoiceId?: string; amount?: number; paymentDate?: string; method?: string; notes?: string }) {
+  async create(@CurrentUser() user: AuthUser, @Body() body: SupplierPaymentDto) {
     const supplierId = body.supplierId?.trim();
     const amount = Number(body.amount);
     if (!supplierId || !Number.isFinite(amount) || amount <= 0) throw new BadRequestException('اختر المورد وأدخل مبلغًا صحيحًا.');

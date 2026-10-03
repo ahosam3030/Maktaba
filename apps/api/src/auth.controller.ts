@@ -5,6 +5,7 @@ import { AuthUser, CurrentUser, JwtAuthGuard } from './auth';
 import { checkRateLimit, resetRateLimit } from './rate-limit';
 import { AuditService } from './audit.service';
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { LoginDto, DeleteOrganizationPublicDto } from './dto/auth.dto';
 
 function clientIp(req: Request): string {
   // لا نثق في X-Forwarded-For إلا عند TRUST_PROXY (يضبطه Nest على req.ip)
@@ -39,7 +40,7 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() body: { email?: string; password?: string }, @Req() req: Request) {
+  async login(@Body() body: LoginDto, @Req() req: Request) {
     const email = (body.email || '').trim().toLowerCase();
     const ip = clientIp(req);
     const ua = (req.headers['user-agent'] as string) || '';
@@ -136,7 +137,7 @@ export class AuthController {
    */
   @Post('delete-organization')
   async deleteOrganizationPublic(
-    @Body() body: { email?: string; password?: string; confirmSlug?: string },
+    @Body() body: DeleteOrganizationPublicDto,
     @Req() req: Request,
   ) {
     const ip = clientIp(req);
