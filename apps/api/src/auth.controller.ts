@@ -26,10 +26,18 @@ export class AuthController {
     return this.auth.login(body);
   }
 
-  /** حذف المكتبة وكل بياناتها — للمالك فقط */
+  /** حذف المكتبة وكل بياناتها — للمالك فقط (مسجّل دخول) */
   @Delete('organization')
   @UseGuards(JwtAuthGuard)
   deleteOrganization(@CurrentUser() user: AuthUser, @Body() body: { confirmSlug?: string }) {
     return this.auth.deleteOrganization(user, body?.confirmSlug);
+  }
+
+  /** حذف المكتبة من صفحة الدخول بعد التحقق بالبريد وكلمة المرور (مالك فقط) */
+  @Post('delete-organization')
+  deleteOrganizationPublic(
+    @Body() body: { email?: string; password?: string; confirmSlug?: string },
+  ) {
+    return this.auth.deleteOrganizationWithCredentials(body);
   }
 }

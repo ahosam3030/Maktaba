@@ -46,6 +46,10 @@ export function App() {
     'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'admin' | 'settings'
   >('dashboard');
   const [confirmSlug, setConfirmSlug] = useState('');
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteSlug, setDeleteSlug] = useState('');
 
   const isLoggedIn = Boolean(getToken() && sessionUser);
 
@@ -164,6 +168,44 @@ export function App() {
     await db.organizations.delete(org.id);
     await refreshLocal();
     setMessage(`تمت إزالة «${org.name}» من الجهاز.`);
+  }
+
+  async function deleteAccountFromLogin() {
+    if (!deleteEmail.trim() || !deletePassword || !deleteSlug.trim()) {
+      setMessage('أدخل البريد وكلمة المرور ومعرّف المكتبة.');
+      return;
+    }
+    if (
+      !confirm(
+        `سيتم حذف المكتبة ذات المعرّف «${deleteSlug.trim()}» وكل بياناتها نهائيًا من الخادم. هل أنت متأكد؟`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await apiRequest<{ name: string; deleted: string }>('/auth/delete-organization', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: deleteEmail.trim(),
+          password: deletePassword,
+          confirmSlug: deleteSlug.trim(),
+        }),
+      });
+      // إزالة من القائمة المحلية إن وُجدت
+      const local = await db.organizations.where('slug').equals(res.deleted).toArray();
+      for (const row of local) await db.organizations.delete(row.id);
+      await refreshLocal();
+      setDeletePassword('');
+      setDeleteSlug('');
+      setShowDeleteAccount(false);
+      setMessage(`تم حذف مكتبة «${res.name}» من الخادم نهائيًا.`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'تعذر حذف الحساب.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function deleteServerOrganization() {
@@ -496,6 +538,67 @@ export function App() {
                   {message}
                 </p>
               )}
+
+              <div className="auth-danger-link">
+                <button
+                  type="button"
+                  className="link-danger"
+                  onClick={() => {
+                    setShowDeleteAccount((v) => !v);
+                    setDeleteEmail(loginEmail);
+                    setMessage('');
+                  }}
+                >
+                  {showDeleteAccount ? 'إخفاء حذف الحساب' : 'حذف مكتبتي من الخادم…'}
+                </button>
+              </div>
+
+              {showDeleteAccount && (
+                <div className="auth-delete-box">
+                  <h4>حذف نهائي من الخادم</h4>
+                  <p className="muted-sm">
+                    للمالك فقط. يلزم البريد وكلمة المرور ومعرّف المكتبة. لا يمكن التراجع. المستخدمون العاديون لا
+                    يستطيعون الحذف.
+                  </p>
+                  <div className="form-grid auth-form">
+                    <label>
+                      البريد
+                      <input
+                        type="email"
+                        value={deleteEmail}
+                        onChange={(e) => setDeleteEmail(e.target.value)}
+                        dir="ltr"
+                      />
+                    </label>
+                    <label>
+                      كلمة المرور
+                      <input
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        dir="ltr"
+                      />
+                    </label>
+                    <label>
+                      معرّف المكتبة للتأكيد
+                      <input
+                        value={deleteSlug}
+                        onChange={(e) => setDeleteSlug(e.target.value)}
+                        dir="ltr"
+                        placeholder="مثل: al-mohandes"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    className="danger-outline-btn"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void deleteAccountFromLogin()}
+                  >
+                    تأكيد الحذف النهائي
+                  </button>
+                </div>
+              )}
             </section>
 
             {organizations.length > 0 && (
@@ -503,7 +606,7 @@ export function App() {
                 <div className="panel-heading">
                   <div>
                     <h2>مكتبات على هذا الجهاز</h2>
-                    <p>مرجع محلي فقط — يمكن إزالته دون حذف بيانات الخادم.</p>
+                    <p>مرجع محلي فقط — «إزالة من الجهاز» لا يحذف حساب الخادم. الحذف النهائي من النموذج أعلاه.</p>
                   </div>
                   <span className="count-badge">{organizations.length}</span>
                 </div>

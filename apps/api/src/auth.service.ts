@@ -117,6 +117,40 @@ export class AuthService {
     return { ok: true, deleted: org.slug, name: org.name };
   }
 
+
+  /** حذف المكتبة من صفحة الدخول بعد التحقق من البريد وكلمة المرور (مالك فقط) */
+  async deleteOrganizationWithCredentials(input: {
+    email?: string;
+    password?: string;
+    confirmSlug?: string;
+  }) {
+    const email = input.email?.trim().toLowerCase();
+    const password = input.password ?? '';
+    const confirmSlug = input.confirmSlug?.trim();
+    if (!email || !password || !confirmSlug) {
+      throw new BadRequestException('أدخل البريد وكلمة المرور ومعرّف المكتبة للتأكيد.');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { organization: true },
+    });
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new UnauthorizedException('بيانات الدخول غير صحيحة.');
+    }
+    if (user.role !== 'OWNER') {
+      throw new ForbiddenException('حذف المكتبة متاح لمالك الحساب فقط.');
+    }
+    if (!user.active) {
+      throw new ForbiddenException('الحساب غير نشط.');
+    }
+    const org = user.organization;
+    if (!org || confirmSlug !== org.slug) {
+      throw new BadRequestException(`للتأكيد اكتب المعرّف بالضبط: ${org?.slug || ''}`);
+    }
+    await this.prisma.organization.delete({ where: { id: org.id } });
+    return { ok: true, deleted: org.slug, name: org.name };
+  }
+
   private issue(
     user: {
       id: string;
