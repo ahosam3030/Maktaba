@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -77,7 +77,22 @@ export class AuthService {
         role: user.role,
         permissions,
       },
-      organization: { id: organization.id, name: organization.name, slug: organization.slug },
+      organization: { id: organization.id, name: organization.name,
+  async deleteOrganization(user: { userId: string; organizationId: string; role: string }, confirmSlug?: string) {
+    if (user.role !== 'OWNER') {
+      throw new ForbiddenException('حذف المكتبة متاح لمالك الحساب فقط.');
+    }
+    const org = await this.prisma.organization.findUnique({ where: { id: user.organizationId } });
+    if (!org) throw new NotFoundException('المكتبة غير موجودة.');
+    if (!confirmSlug || confirmSlug.trim() !== org.slug) {
+      throw new BadRequestException(`للتأكيد اكتب المعرّف: ${org.slug}`);
+    }
+    // Cascade on Organization relations removes children
+    await this.prisma.organization.delete({ where: { id: org.id } });
+    return { ok: true, deleted: org.slug, name: org.name };
+  }
+
+ slug: organization.slug },
     };
   }
 }
