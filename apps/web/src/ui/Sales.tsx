@@ -50,6 +50,7 @@ export function Sales() {
   const [paidAmount, setPaidAmount] = useState('');
   const [saleSearch, setSaleSearch] = useState('');
   const [notice, setNotice] = useState('');
+  const [pageTab, setPageTab] = useState<'invoice' | 'history'>('invoice');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -776,19 +777,30 @@ export function Sales() {
   return (
     <div className="purchases-page">
       <div className="purchase-title">
-        <div><span className="eyebrow">نقطة البيع</span><h1>المبيعات</h1><p>إنشاء فاتورة بيع، خصم الرصيد من المخزون، ومتابعة الفواتير السابقة.</p></div>
+        <div>
+          <span className="eyebrow">نقطة البيع</span>
+          <h1>المبيعات</h1>
+          <p>إصدار فواتير البيع، متابعة المخزون والمكسب، وسجل الفواتير السابقة.</p>
+        </div>
         <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث البيانات</button>
       </div>
+
+      <div className="stat-cards">
+        <div className="stat-card"><div className="label">فواتير البيع</div><div className="value">{filteredSales.length}</div></div>
+        <div className="stat-card"><div className="label">إجمالي الفواتير</div><div className="value">{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0))}</div></div>
+        <div className="stat-card"><div className="label">المتبقي على العملاء</div><div className="value">{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0))}</div></div>
+        <div className="stat-card"><div className="label">مكسب تقديري</div><div className={`value ${historyProfit >= 0 ? 'positive' : 'negative'}`}>{money(historyProfit)}</div></div>
+      </div>
+
+      <div className="page-tabs" role="tablist">
+        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>فاتورة بيع</button>
+        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>سجل الفواتير</button>
+      </div>
+
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
       {error && <div className="purchase-notice" role="alert">{error} — تأكد من تسجيل الدخول وتشغيل الخادم.</div>}
 
-      <section className="stats-grid">
-        <article className="stat-card"><span>عدد فواتير البيع</span><strong>{filteredSales.length}</strong></article>
-        <article className="stat-card"><span>إجمالي قيمة الفواتير</span><strong>{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total), 0))}</strong></article>
-        <article className="stat-card"><span>المبالغ المتبقية</span><strong>{money(filteredSales.reduce((sum, sale) => sum + Number(sale.total) - Number(sale.paidAmount), 0))}</strong></article>
-        <article className="stat-card"><span>مكسب تقديري (المعروض)</span><strong style={{ color: historyProfit >= 0 ? '#0a7a4b' : '#b42318' }}>{money(historyProfit)}</strong></article>
-      </section>
-
+      {pageTab === 'invoice' && (
       <section className="purchase-panel">
         <div className="panel-heading">
           <div>
@@ -984,6 +996,9 @@ export function Sales() {
         </div>
       </section>
 
+      )}
+
+      {pageTab === 'history' && (
       <section className="purchase-panel">
         <div className="panel-heading">
           <div>
@@ -1049,6 +1064,7 @@ export function Sales() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

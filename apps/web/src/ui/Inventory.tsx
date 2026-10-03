@@ -29,6 +29,7 @@ export function Inventory() {
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('جرد فعلي');
   const [notes, setNotes] = useState('');
+  const [pageTab, setPageTab] = useState<'balances' | 'adjust' | 'edit'>('balances');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -193,10 +194,7 @@ export function Inventory() {
         <div>
           <span className="eyebrow">إدارة الأصناف</span>
           <h1>المخزون</h1>
-          <p>
-            الرصيد = وارد (فواتير المشتريات) − مرتجعات − مبيعات ± تسويات الجرد. مرتبط مباشرة بفواتير
-            الوارد على الخادم.
-          </p>
+          <p>الرصيد = وارد − مرتجعات − مبيعات ± تسويات. مرتبط بفواتير الوارد على الخادم.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="secondary-btn" type="button" disabled={busy} onClick={() => void repairBalances()}>
@@ -219,24 +217,17 @@ export function Inventory() {
         </div>
       )}
 
-      <section className="stats-grid">
-        <article className="stat-card">
-          <span>عدد الأصناف</span>
-          <strong>{totals.count}</strong>
-        </article>
-        <article className="stat-card">
-          <span>إجمالي الرصيد (قطعة)</span>
-          <strong style={{ color: totals.units < 0 ? '#b42318' : undefined }}>{qty(totals.units)}</strong>
-        </article>
-        <article className="stat-card">
-          <span>أصناف رصيدها سالب</span>
-          <strong style={{ color: totals.negative ? '#b42318' : undefined }}>{totals.negative}</strong>
-        </article>
-        <article className="stat-card">
-          <span>قيمة المخزون (تكلفة)</span>
-          <strong>{money(totals.value)}</strong>
-        </article>
-      </section>
+      <div className="stat-cards">
+        <div className="stat-card"><div className="label">عدد الأصناف</div><div className="value">{totals.count}</div></div>
+        <div className="stat-card"><div className="label">إجمالي الرصيد (قطعة)</div><div className={`value ${totals.units < 0 ? 'negative' : ''}`}>{qty(totals.units)}</div></div>
+        <div className="stat-card"><div className="label">أصناف رصيدها سالب</div><div className={`value ${totals.negative ? 'negative' : ''}`}>{totals.negative}</div></div>
+        <div className="stat-card"><div className="label">قيمة المخزون (تكلفة)</div><div className="value">{money(totals.value)}</div></div>
+      </div>
+
+      <div className="page-tabs" role="tablist">
+        <button type="button" className={pageTab === 'balances' ? 'active' : ''} onClick={() => setPageTab('balances')}>أرصدة الأصناف</button>
+        <button type="button" className={pageTab === 'adjust' ? 'active' : ''} onClick={() => setPageTab('adjust')}>تسوية جرد</button>
+      </div>
 
       {editId && (
         <section className="purchase-panel">
@@ -277,6 +268,7 @@ export function Inventory() {
         </section>
       )}
 
+      {pageTab === 'adjust' && (
       <section className="purchase-panel">
         <div className="panel-heading">
           <div>
@@ -320,6 +312,9 @@ export function Inventory() {
         </div>
       </section>
 
+      )}
+
+      {pageTab === 'balances' && (
       <section className="purchase-panel">
         <div className="panel-heading">
           <div>

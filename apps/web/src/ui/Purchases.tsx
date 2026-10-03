@@ -31,6 +31,7 @@ export function Purchases() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [pageTab, setPageTab] = useState<'invoice' | 'payments' | 'returns' | 'report' | 'history'>('invoice');
 
   const PURCHASE_UNITS = [
     { label: 'قطعة', api: 'PIECE' as const, defaultPcs: 1 },
@@ -593,16 +594,44 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
     w.document.close();
   }
 
+  const purchaseStats = {
+    invoices: invoices.length,
+    suppliers: suppliers.length,
+    payments: payments.length,
+    returns: returns.length,
+  };
+
   return (
     <div className="purchases-page">
       <div className="purchase-title">
-        <div><span className="eyebrow">المشتريات</span><h1>المشتريات</h1><p>مرتبطة بالخادم PostgreSQL وتؤثر على المخزون فور الحفظ.</p></div>
-        <button className="secondary-btn" onClick={() => void refresh()}>تحديث</button>
+        <div>
+          <span className="eyebrow">العمليات</span>
+          <h1>المشتريات</h1>
+          <p>فواتير الوارد، الدفعات، المرتجعات، وتقارير الأسعار — مرتبطة بالمخزون فور الحفظ.</p>
+        </div>
+        <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث</button>
       </div>
+
+      <div className="stat-cards">
+        <div className="stat-card"><div className="label">فواتير الوارد</div><div className="value">{purchaseStats.invoices}</div></div>
+        <div className="stat-card"><div className="label">الموردون</div><div className="value">{purchaseStats.suppliers}</div></div>
+        <div className="stat-card"><div className="label">الدفعات</div><div className="value">{purchaseStats.payments}</div></div>
+        <div className="stat-card"><div className="label">المرتجعات</div><div className="value">{purchaseStats.returns}</div></div>
+      </div>
+
+      <div className="page-tabs" role="tablist">
+        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>فاتورة وارد</button>
+        <button type="button" className={pageTab === 'payments' ? 'active' : ''} onClick={() => setPageTab('payments')}>دفعات الموردين</button>
+        <button type="button" className={pageTab === 'returns' ? 'active' : ''} onClick={() => setPageTab('returns')}>مرتجع</button>
+        <button type="button" className={pageTab === 'report' ? 'active' : ''} onClick={() => setPageTab('report')}>تقرير منتج</button>
+        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>سجل الفواتير</button>
+      </div>
+
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
       {error && <div className="purchase-notice" role="alert">{error}</div>}
       {loading && <div className="empty-state">جارٍ التحميل...</div>}
 
+      {pageTab === 'invoice' && (
       <section className="purchase-panel" id="purchase-invoice-form">
         <div className="panel-heading">
           <div>
@@ -798,8 +827,11 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         </div>
       </section>
 
+      )}
+
+      {pageTab === 'payments' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>دفعات الموردين</h2></div></div>
+        <div className="panel-heading"><div><h2>دفعات الموردين</h2><p>تسجيل مدفوعات للموردين.</p></div></div>
         <div className="inline-form">
           <label>المورد<select value={paymentSupplierId} onChange={(e) => setPaymentSupplierId(e.target.value)}><option value="">اختر</option>{suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label>المبلغ<input type="number" min="0" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></label>
@@ -810,8 +842,11 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
           <tbody>{payments.slice(0, 20).map((p) => <tr key={p.id}><td>{p.supplier?.name}</td><td>{money(num(p.amount))}</td><td>{String(p.paymentDate).slice(0, 10)}</td><td>{p.method}</td></tr>)}</tbody></table></div>
       </section>
 
+      )}
+
+      {pageTab === 'returns' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>مرتجع مشتريات</h2></div></div>
+        <div className="panel-heading"><div><h2>مرتجع مشتريات</h2><p>إرجاع أصناف من فواتير وارد سابقة.</p></div></div>
         <div className="inline-form">
           <label>الفاتورة<select value={returnInvoiceId} onChange={(e) => { setReturnInvoiceId(e.target.value); setReturnItemId(''); }}>
             <option value="">اختر</option>
@@ -828,6 +863,9 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         </div>
       </section>
 
+      )}
+
+      {pageTab === 'report' && (
       <section className="purchase-panel product-report-panel">
         <div className="product-report-search">
           <input
@@ -992,9 +1030,12 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         })()}
       </section>
 
+      )}
+
+      {pageTab === 'history' && (
       <section className="purchase-panel">
         <div className="panel-heading">
-          <div><h2>سجل الفواتير</h2></div>
+          <div><h2>سجل الفواتير</h2><p>عرض وتعديل وحذف فواتير الوارد.</p></div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="count-badge">{filtered.length}</span>
             <button
@@ -1052,6 +1093,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
           {filtered.length === 0 && <div className="empty-state">لا توجد فواتير.</div>}
         </div>
       </section>
+      )}
     </div>
   );
 }

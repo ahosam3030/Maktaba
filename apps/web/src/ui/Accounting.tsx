@@ -28,6 +28,7 @@ export function Accounting() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pageTab, setPageTab] = useState<'entry' | 'ledger'>('entry');
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -106,23 +107,35 @@ export function Accounting() {
   return (
     <div className="purchases-page">
       <div className="purchase-title">
-        <div><span className="eyebrow">المحاسبة</span><h1>الخزينة</h1><p>حركات مشتركة على PostgreSQL مرتبطة بحسابك.</p></div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div>
+          <span className="eyebrow">المحاسبة</span>
+          <h1>الخزينة</h1>
+          <p>إيرادات ومصروفات مشتركة على الخادم، مع فلترة وتصدير للفترة.</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث</button>
           <button className="secondary-btn" type="button" onClick={exportCsv}>تصدير CSV</button>
         </div>
       </div>
+
+      <div className="stat-cards">
+        <div className="stat-card"><div className="label">إيرادات الفترة</div><div className="value positive">{money(totals.income)}</div></div>
+        <div className="stat-card"><div className="label">مصروفات الفترة</div><div className="value negative">{money(totals.expense)}</div></div>
+        <div className="stat-card"><div className="label">صافي الحركة</div><div className={`value ${totals.net >= 0 ? 'positive' : 'negative'}`}>{money(totals.net)}</div></div>
+        <div className="stat-card"><div className="label">عدد الحركات</div><div className="value">{rows.length}</div></div>
+      </div>
+
+      <div className="page-tabs" role="tablist">
+        <button type="button" className={pageTab === 'entry' ? 'active' : ''} onClick={() => setPageTab('entry')}>حركة جديدة</button>
+        <button type="button" className={pageTab === 'ledger' ? 'active' : ''} onClick={() => setPageTab('ledger')}>السجل</button>
+      </div>
+
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
       {error && <div className="purchase-notice" role="alert">{error}</div>}
 
-      <section className="stats-grid">
-        <article className="stat-card"><span>إيرادات الفترة</span><strong>{money(totals.income)}</strong></article>
-        <article className="stat-card"><span>مصروفات الفترة</span><strong>{money(totals.expense)}</strong></article>
-        <article className="stat-card"><span>صافي الحركة</span><strong>{money(totals.net)}</strong></article>
-      </section>
-
+      {pageTab === 'entry' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>حركة جديدة</h2></div></div>
+        <div className="panel-heading"><div><h2>حركة جديدة</h2><p>تسجيل إيراد أو مصروف يدويًا.</p></div></div>
         <div className="purchase-form-grid">
           <label>النوع<select value={kind} onChange={(e) => { const k = e.target.value as 'INCOME' | 'EXPENSE'; setKind(k); setCategory(categories[k][0]); }}>
             <option value="INCOME">إيراد</option><option value="EXPENSE">مصروف</option>
@@ -141,8 +154,11 @@ export function Accounting() {
         </div>
       </section>
 
+      )}
+
+      {pageTab === 'ledger' && (
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>السجل</h2></div><span className="count-badge">{rows.length}</span></div>
+        <div className="panel-heading"><div><h2>السجل</h2><p>فلترة حسب التاريخ أو البحث في البند والمرجع.</p></div><span className="count-badge">{rows.length}</span></div>
         <div className="inline-form">
           <label>من<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></label>
           <label>إلى<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></label>
@@ -165,6 +181,7 @@ export function Accounting() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }
