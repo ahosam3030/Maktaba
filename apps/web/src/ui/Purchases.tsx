@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest, getToken } from '../data/api';
-import { attachBarcodeGuard, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { ScanModeOverlay } from './ScanModeOverlay';
 import { ProductPriceReport } from './ProductPriceReport';
 import { IconCart, IconReceipt, IconWallet, IconTag, IconRefresh, IconPackage } from './Icons';
@@ -33,10 +32,9 @@ export function Purchases() {
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
   const [catalog, setCatalog] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [devtoolsWarn, setDevtoolsWarn] = useState(false);
+
   const [scanMode, setScanMode] = useState(false);
   useEffect(() => {
-    const check = () => setDevtoolsWarn(isDevToolsLikelyOpen());
     check();
     const id = window.setInterval(check, 1500);
     window.addEventListener('resize', check);
@@ -368,18 +366,6 @@ export function Purchases() {
   }
 
 
-  useEffect(() => {
-    return attachBarcodeGuard((code) => {
-      setLines((old) => {
-        const empty = old.find((l) => !l.productName.trim() && !l.barcode.trim());
-        const key = empty?.key || old[0]?.key;
-        if (!key) return old;
-        // apply after state: use timeout to call fill with known key
-        queueMicrotask(() => fillFromBarcode(key, code));
-        return old.map((l) => (l.key === key ? { ...l, barcode: code } : l));
-      });
-    });
-  }, []);
 
   function fillFromProductName(key: string, name: string) {
     const product = findCatalogProduct(name);
@@ -621,11 +607,6 @@ export function Purchases() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
         <button type="button" className="primary-btn" onClick={() => setScanMode(true)}>مسح باركود</button>
       </div>
-      {devtoolsWarn && (
-        <div className="purchase-notice" role="alert" style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }}>
-          أدوات المطوّر (DevTools) مفتوحة — أغلقها (X أو F12) قبل مسح الباركود. إن استمر الفتح فالماسح يرسل اختصار متصفح (أعد برمجة الـ Prefix).
-        </div>
-      )}
       <div className="purchase-title">
         <div>
           <span className="eyebrow">العمليات</span>

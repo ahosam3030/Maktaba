@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { apiRequest } from '../data/api';
-import { attachBarcodeGuard, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { ScanModeOverlay } from './ScanModeOverlay';
 import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
@@ -79,19 +78,7 @@ export function Sales() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [devtoolsWarn, setDevtoolsWarn] = useState(false);
   const [scanMode, setScanMode] = useState(false);
-
-  useEffect(() => {
-    const check = () => setDevtoolsWarn(isDevToolsLikelyOpen());
-    check();
-    const id = window.setInterval(check, 1500);
-    window.addEventListener('resize', check);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener('resize', check);
-    };
-  }, []);
 
   /** أكبر رقم فاتورة + 1 (أرقام فقط من نهاية الرقم أو الرقم كاملًا) */
   function computeNextInvoiceNo(records: Sale[]): string {
@@ -230,78 +217,57 @@ export function Sales() {
   }
 
   function focusBarcodeField(lineKey: string) {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const el = document.querySelector(
-          `input[data-line-key="${lineKey}"][data-field="barcode"]`,
-        ) as HTMLInputElement | null;
-        if (el) {
-          el.focus();
-          el.select();
-        }
-      });
-    });
+    window.setTimeout(() => {
+      const el = document.querySelector(
+        `input[data-line-key="${lineKey}"][data-field="barcode"]`,
+      ) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 50);
   }
 
-  /** بعد مسح ناجح: أضف سطرًا فارغًا إن لزم وانقل التركيز لباركود السطر التالي */
   function resolveBarcode(key: string, value?: string) {
-    let nextFocusKey: string | null = null;
-    setCart((old) => {
-      let ok = false;
-      let applied = old.map((line) => {
-        if (line.key !== key) return line;
-        const text = (value !== undefined ? value : line.barcode).trim();
-        if (!text) return line;
-        const p = findProduct(text);
-        if (!p) {
-          setNotice(`لا يوجد صنف بالباركود «${text}».`);
-          return line;
-        }
-        ok = true;
-        setNotice(`تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`);
-        return applyProductToLine(line, p, text);
-      });
-      if (!ok) return applied;
+    const lines = cartRef.current;
+    const line = lines.find((l) => l.key === key);
+    if (!line) return;
+    const text = (value !== undefined ? value : line.barcode).trim();
+    if (!text) return;
 
-      const idx = applied.findIndex((l) => l.key === key);
-      // سطر فارغ بعد السطر الحالي
-      let nextIdx = applied.findIndex(
-        (l, i) => i > idx && !l.productId && !String(l.query || '').trim() && !String(l.barcode || '').trim(),
+    const p = findProduct(text);
+    if (!p) {
+      setNotice(`لا يوجد صنف بالباركود «${text}».`);
+      return;
+    }
+
+    const blank = emptyCartLine();
+    const idx = lines.findIndex((l) => l.key === key);
+    let nextKey: string | null = null;
+    const after = lines.slice(idx + 1).find(
+      (l) => !l.productId && !String(l.query || '').trim() && !String(l.barcode || '').trim(),
+    );
+    if (after) nextKey = after.key;
+    else nextKey = blank.key;
+
+    setCart((old) => {
+      let applied = old.map((l) => (l.key === key ? applyProductToLine(l, p, text) : l));
+      const hasNext = applied.some(
+        (l, i) =>
+          i > idx &&
+          !l.productId &&
+          !String(l.query || '').trim() &&
+          !String(l.barcode || '').trim(),
       );
-      if (nextIdx < 0) {
-        const blank = emptyCartLine();
-        applied = [...applied, blank];
-        nextIdx = applied.length - 1;
-      }
-      nextFocusKey = applied[nextIdx]?.key || null;
+      if (!hasNext) applied = [...applied, blank];
       return applied;
     });
-    if (nextFocusKey) {
-      // انتظر تحديث الـ DOM بعد setState
-      setTimeout(() => {
-        if (nextFocusKey) focusBarcodeField(nextFocusKey);
-      }, 30);
-    }
+
+    setNotice(
+      `تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`,
+    );
+    focusBarcodeField(nextKey);
   }
-
-
-  const resolveBarcodeRef = useRef(resolveBarcode);
-  resolveBarcodeRef.current = resolveBarcode;
-  const onBarcodeChangeRef = useRef(onBarcodeChange);
-  onBarcodeChangeRef.current = onBarcodeChange;
-
-  useEffect(() => {
-    return attachBarcodeGuard((code) => {
-      const lines = cartRef.current;
-      const active =
-        (document.activeElement as HTMLElement | null)?.getAttribute?.('data-line-key') ||
-        lines.find((l) => !l.productId && !String(l.query || '').trim())?.key ||
-        lines[0]?.key;
-      if (!active) return;
-      onBarcodeChangeRef.current(active, code);
-      resolveBarcodeRef.current(active, code);
-    });
-  }, []);
 
   function resolveProductLine(key: string, value?: string) {
     setCart((old) => old.map((line) => {
@@ -938,12 +904,6 @@ function printDraft() {
 
   return (
     <div className="purchases-page sales-page">
-      {devtoolsWarn && (
-        <div className="purchase-notice" role="alert" style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }}>
-          أدوات المطوّر (DevTools) مفتوحة على الجانب — <strong>أغلقها من زر X أو F12</strong> ثم امسح الباركود.
-          لو استمر الفتح بعد الإغلاق، الماسح مبرمَج باختصار متصفح ويجب إزالة الـ Prefix من إعدادات الماسح.
-        </div>
-      )}
       <div className="purchase-title">
         <div>
           <span className="eyebrow">نقطة البيع</span>
@@ -1075,7 +1035,13 @@ function printDraft() {
                         data-line-key={line.key}
                         data-field="barcode"
                         onChange={(e) => onBarcodeChange(line.key, e.target.value)}
-                        onBlur={(e) => resolveBarcode(line.key, e.target.value)}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (!v) return;
+                          // لا تعِد الجلب لو السطر متحدّث بالفعل لنفس الباركود
+                          if (line.productId && (line.barcode || '').trim() === v) return;
+                          resolveBarcode(line.key, v);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();

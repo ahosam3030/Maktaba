@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { startSyncWatchers, processSyncQueue, subscribeSyncQueue, countPending } from '../data/sync';
-import { attachDevToolsBlocker, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { fetchInvoiceSettings } from '../data/invoiceSettings';
 import { db, type LocalOrganization } from '../data/db';
 import {
@@ -65,10 +64,6 @@ export function App() {
   const [deleteSlug, setDeleteSlug] = useState('');
 
   const isLoggedIn = Boolean(getToken() && sessionUser);
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    return attachDevToolsBlocker();
-  }, [isLoggedIn]);
 
 
   async function refreshLocal() {
