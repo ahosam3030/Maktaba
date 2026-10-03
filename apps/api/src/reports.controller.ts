@@ -147,7 +147,7 @@ export class ReportsController {
     let servicesNet = 0;
     let servicesPaid = 0;
     for (const r of serviceReceipts) {
-      // ServiceReceipt لا يحتوي subtotal — نحسبه من الإجمالي والرسوم والخصم
+      // FIX: ServiceReceipt model has no `subtotal` field (only total, extraFees, discount).
       const fees = Number(r.extraFees) || 0;
       const disc = Number(r.discount) || 0;
       const tot = Number(r.total) || 0;
