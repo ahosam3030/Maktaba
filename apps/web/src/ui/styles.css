@@ -715,12 +715,16 @@
 .reports-section-title{font-size:14px;font-weight:700;color:#3d555c;margin:22px 0 10px;padding-inline-start:2px}
 .reports-section-title:first-of-type{margin-top:8px}
 
-/* ===== Reports page ===== */
-.reports-page .rpt-tabs{
+/* ===== Report / settings style tabs (horizontal) ===== */
+.rpt-tabs{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:10px;
   margin:0 0 18px;
+  width:100%;
+}
+.reports-page .rpt-tabs{
+  grid-template-columns:repeat(3,minmax(0,1fr));
 }
 .rpt-tabs button{
   text-align:right;
@@ -731,9 +735,12 @@
   cursor:pointer;
   font:inherit;
   display:flex;
-  flex-direction:column;
-  gap:4px;
+  flex-direction:row;
+  align-items:center;
+  gap:12px;
   transition:border-color .15s,box-shadow .15s,background .15s;
+  width:100%;
+  box-sizing:border-box;
 }
 .rpt-tabs button strong{font-size:14px;color:#1a3a40;font-weight:800}
 .rpt-tabs button span{font-size:11px;color:#8a9da1}
@@ -1618,8 +1625,24 @@ html,body,input,button,select,textarea,table{
 .settings-nav{
   margin-bottom:18px;
 }
-.settings-page .rpt-tabs{
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+.settings-page .rpt-tabs,
+.settings-page .settings-nav.rpt-tabs{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:10px;
+  width:100%;
+}
+@media (max-width:900px){
+  .settings-page .rpt-tabs,
+  .settings-page .settings-nav.rpt-tabs{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+@media (max-width:500px){
+  .settings-page .rpt-tabs,
+  .settings-page .settings-nav.rpt-tabs{
+    grid-template-columns:1fr !important;
+  }
 }
 
 .settings-form-grid{
