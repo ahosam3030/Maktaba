@@ -19,7 +19,16 @@ type CartLine = {
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
-  items: Array<{ id: string; productName: string; quantity: number | string; unitPrice: number | string; unitCost?: number | string; lineTotal: number | string }>;
+  items: Array<{
+    id: string;
+    productId?: string | null;
+    productName: string;
+    quantity: number | string;
+    returnedQuantity?: number | string;
+    unitPrice: number | string;
+    unitCost?: number | string;
+    lineTotal: number | string;
+  }>;
 };
 const money = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const qty = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 3 });
@@ -32,6 +41,10 @@ export function Sales() {
   const [saleUnits, setSaleUnits] = useState<string[]>(() => loadSaleUnits());
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [returnSale, setReturnSale] = useState<Sale | null>(null);
+  const [returnQtys, setReturnQtys] = useState<Record<string, string>>({});
+  const [returnReason, setReturnReason] = useState('');
+  const [returnRefund, setReturnRefund] = useState('');
   const newLineKey = () => `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const emptyCartLine = (): CartLine => ({
     key: newLineKey(),
@@ -761,7 +774,62 @@ export function Sales() {
     }
   }
 
-  function printDraft() {
+  
+  function openReturn(sale: Sale) {
+    const qtys: Record<string, string> = {};
+    for (const it of sale.items) {
+      const remaining = Number(it.quantity) - Number(it.returnedQuantity || 0);
+      qtys[it.id] = remaining > 0 ? String(remaining) : '0';
+    }
+    setReturnSale(sale);
+    setReturnQtys(qtys);
+    setReturnReason('');
+    const totalRemaining = sale.items.reduce((s, it) => {
+      const rem = Math.max(0, Number(it.quantity) - Number(it.returnedQuantity || 0));
+      return s + rem * Number(it.unitPrice);
+    }, 0);
+    setReturnRefund(String(Math.round(totalRemaining * 100) / 100));
+  }
+
+  async function submitReturn() {
+    if (!returnSale) return;
+    const items = returnSale.items
+      .map((it) => ({
+        saleItemId: it.id,
+        quantity: Number(returnQtys[it.id] || 0),
+      }))
+      .filter((x) => x.quantity > 0);
+    if (items.length === 0) {
+      setNotice('حدد كمية مرتجع واحدة على الأقل.');
+      return;
+    }
+    setSaving(true);
+    setNotice('');
+    try {
+      await apiRequest(
+        '/sales/returns',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            saleId: returnSale.id,
+            reason: returnReason.trim() || undefined,
+            refundAmount: Number(returnRefund) || 0,
+            items,
+          }),
+        },
+        { queueLabel: 'مرتجع بيع' },
+      );
+      setNotice(`تم تسجيل مرتجع على فاتورة ${returnSale.invoiceNumber}.`);
+      setReturnSale(null);
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر تسجيل المرتجع.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+function printDraft() {
     const lines = cart.filter((l) => l.query?.trim() && Number(l.quantity) > 0);
     if (lines.length === 0) { setNotice('أضف بنودًا قبل الطباعة.'); return; }
     const draft: Sale = {
@@ -1126,6 +1194,7 @@ export function Sales() {
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button className="secondary-btn small" type="button" onClick={() => printSale(sale)}>طباعة</button>
+                        <button className="secondary-btn small" type="button" onClick={() => openReturn(sale)}>مرتجع</button>
                         <button
                           className="danger-outline-btn"
                           type="button"
@@ -1146,6 +1215,75 @@ export function Sales() {
         )}
       </section>
       )}
+
+      {returnSale && (
+        <div className="modal-backdrop" role="dialog" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', zIndex: 50, padding: 16 }}>
+          <div className="purchase-panel" style={{ maxWidth: 640, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="panel-heading">
+              <div>
+                <h2>مرتجع بيع — {returnSale.invoiceNumber}</h2>
+                <p>يُعاد المخزون للأصناف ويُسجَّل الاسترداد في الخزينة إن وُجد.</p>
+              </div>
+              <button type="button" className="secondary-btn" onClick={() => setReturnSale(null)}>إغلاق</button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الصنف</th>
+                    <th>المباع</th>
+                    <th>مرتجع سابق</th>
+                    <th>كمية المرتجع</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returnSale.items.map((it) => {
+                    const sold = Number(it.quantity);
+                    const prev = Number(it.returnedQuantity || 0);
+                    const max = Math.max(0, sold - prev);
+                    return (
+                      <tr key={it.id}>
+                        <td>{it.productName}</td>
+                        <td>{qty(sold)}</td>
+                        <td>{qty(prev)}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min={0}
+                            max={max}
+                            step="0.001"
+                            value={returnQtys[it.id] ?? '0'}
+                            disabled={max <= 0}
+                            onChange={(e) => setReturnQtys((old) => ({ ...old, [it.id]: e.target.value }))}
+                            style={{ width: 90 }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="pur-form-grid" style={{ marginTop: 12 }}>
+              <label className="pur-field">
+                سبب المرتجع
+                <input value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="اختياري" />
+              </label>
+              <label className="pur-field">
+                مبلغ الاسترداد من الخزينة
+                <input type="number" min={0} step="0.01" value={returnRefund} onChange={(e) => setReturnRefund(e.target.value)} />
+              </label>
+            </div>
+            <div className="pur-footer-actions" style={{ marginTop: 14 }}>
+              <button type="button" className="primary-btn" disabled={saving} onClick={() => void submitReturn()}>
+                تأكيد المرتجع
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setReturnSale(null)}>إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

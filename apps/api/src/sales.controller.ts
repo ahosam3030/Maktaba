@@ -260,7 +260,180 @@ export class SalesController {
     );
   }
 
-  private async lockProductRow(
+
+  @Get('returns')
+  listReturns(@CurrentUser() user: AuthUser) {
+    return this.prisma.saleReturn.findMany({
+      where: { organizationId: user.organizationId },
+      include: {
+        items: true,
+        sale: { select: { id: true, invoiceNumber: true, saleDate: true, customerName: true } },
+      },
+      orderBy: { returnDate: 'desc' },
+      take: 200,
+    });
+  }
+
+  @Post('returns')
+  async createReturn(
+    @CurrentUser() user: AuthUser,
+    @Body()
+    body: {
+      saleId?: string;
+      returnNumber?: string;
+      returnDate?: string;
+      reason?: string;
+      refundAmount?: number;
+      items?: Array<{ saleItemId?: string; quantity?: number }>;
+    },
+  ) {
+    const saleId = body.saleId?.trim();
+    if (!saleId || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new BadRequestException('حدد فاتورة البيع وبندًا واحدًا على الأقل للمرتجع.');
+    }
+    const returnDate = body.returnDate ? new Date(body.returnDate) : new Date();
+    if (Number.isNaN(returnDate.getTime())) throw new BadRequestException('تاريخ المرتجع غير صحيح.');
+
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const sale = await tx.sale.findFirst({
+            where: { id: saleId, organizationId: user.organizationId },
+            include: { items: true },
+          });
+          if (!sale) throw new BadRequestException('فاتورة البيع غير موجودة.');
+
+          const productIds = [
+            ...new Set(sale.items.map((i) => i.productId).filter(Boolean)),
+          ] as string[];
+          for (const productId of productIds) {
+            await this.lockProductRow(tx, user.organizationId, productId);
+          }
+
+          // أعد قراءة البنود بعد القفل
+          const freshItems = await tx.saleItem.findMany({ where: { saleId: sale.id } });
+          const byId = new Map(freshItems.map((i) => [i.id, i]));
+
+          const lines: Array<{
+            item: (typeof freshItems)[0];
+            quantity: number;
+            lineTotal: number;
+          }> = [];
+
+          for (const draft of body.items!) {
+            const item = byId.get(draft.saleItemId || '');
+            const quantity = Number(draft.quantity);
+            if (!item || !Number.isFinite(quantity) || quantity <= 0) {
+              throw new BadRequestException('أحد أصناف المرتجع غير صحيح.');
+            }
+            const remaining = Number(item.quantity) - Number(item.returnedQuantity);
+            if (quantity > remaining + 1e-9) {
+              throw new BadRequestException(
+                `كمية المرتجع تتجاوز المتبقي للصنف ${item.productName}. المتبقي: ${remaining}`,
+              );
+            }
+            lines.push({
+              item,
+              quantity,
+              lineTotal: quantity * Number(item.unitPrice),
+            });
+          }
+
+          const total = lines.reduce((s, l) => s + l.lineTotal, 0);
+          let refundAmount = body.refundAmount !== undefined ? Number(body.refundAmount) : total;
+          if (!Number.isFinite(refundAmount) || refundAmount < 0) {
+            throw new BadRequestException('مبلغ الاسترداد غير صحيح.');
+          }
+          if (refundAmount > total + 1e-9) refundAmount = total;
+
+          const saleReturn = await tx.saleReturn.create({
+            data: {
+              organizationId: user.organizationId,
+              saleId: sale.id,
+              returnNumber: body.returnNumber?.trim() || null,
+              returnDate,
+              total: new Prisma.Decimal(total),
+              refundAmount: new Prisma.Decimal(refundAmount),
+              reason: body.reason?.trim() || null,
+              items: {
+                create: lines.map((l) => ({
+                  saleItemId: l.item.id,
+                  productId: l.item.productId,
+                  productName: l.item.productName,
+                  quantity: new Prisma.Decimal(l.quantity),
+                  unitPrice: l.item.unitPrice,
+                  unitCost: l.item.unitCost,
+                  lineTotal: new Prisma.Decimal(l.lineTotal),
+                })),
+              },
+            },
+            include: {
+              items: true,
+              sale: { select: { id: true, invoiceNumber: true, customerName: true } },
+            },
+          });
+
+          for (const l of lines) {
+            const updated = await tx.saleItem.updateMany({
+              where: {
+                id: l.item.id,
+                returnedQuantity: { lte: new Prisma.Decimal(Number(l.item.quantity) - l.quantity) },
+              },
+              data: { returnedQuantity: { increment: new Prisma.Decimal(l.quantity) } },
+            });
+            if (updated.count === 0) {
+              throw new BadRequestException(
+                `تعذر تسجيل مرتجع ${l.item.productName} بسبب عملية متزامنة — أعد المحاولة.`,
+              );
+            }
+            if (l.item.productId) {
+              await tx.stockMovement.create({
+                data: {
+                  organizationId: user.organizationId,
+                  productId: l.item.productId,
+                  quantity: new Prisma.Decimal(l.quantity),
+                  type: 'SALE_RETURN',
+                  reason: `مرتجع بيع ${sale.invoiceNumber}`,
+                  notes: body.reason?.trim() || `إرجاع من فاتورة ${sale.invoiceNumber}`,
+                },
+              });
+            }
+          }
+
+          if (refundAmount > 0) {
+            await tx.cashTransaction.create({
+              data: {
+                organizationId: user.organizationId,
+                userId: user.userId,
+                kind: 'EXPENSE',
+                date: returnDate,
+                category: 'مرتجع مبيعات',
+                amount: new Prisma.Decimal(refundAmount),
+                method: 'CASH',
+                reference: `SALE_RETURN:${saleReturn.id}`,
+                notes: `استرداد مرتجع بيع ${sale.invoiceNumber}`,
+              },
+            });
+          }
+
+          return saleReturn;
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          maxWait: 5_000,
+          timeout: 15_000,
+        },
+      );
+    } catch (error: unknown) {
+      if (error instanceof BadRequestException) throw error;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new BadRequestException('تعارض في المخزون بسبب عملية متزامنة — أعد المحاولة.');
+      }
+      throw error;
+    }
+  }
+
+    private async lockProductRow(
     tx: Prisma.TransactionClient,
     organizationId: string,
     productId: string,
