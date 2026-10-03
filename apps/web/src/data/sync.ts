@@ -74,9 +74,18 @@ async function sendOne(item: OutboxItem): Promise<void> {
   if (!response.ok) {
     if (response.status === 401) {
       clearSession();
+      // مؤقت: أعد المحاولة بعد إعادة تسجيل الدخول — لا تُعلَّم دائمة
+      const err = new Error('انتهت الجلسة — سجّل الدخول ثم المزامنة') as Error & { permanent?: boolean };
+      err.permanent = false;
+      throw err;
     }
-    const msg = (result as { message?: string }).message || `HTTP ${response.status}`;
-    // 4xx (except 408/429) = permanent failure for this payload
+    const msg =
+      typeof (result as { message?: unknown }).message === 'string'
+        ? (result as { message: string }).message
+        : Array.isArray((result as { message?: unknown }).message)
+          ? ((result as { message: string[] }).message).join(' — ')
+          : `HTTP ${response.status}`;
+    // 4xx دائمة ما عدا 401/408/429
     if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
       const err = new Error(msg) as Error & { permanent?: boolean };
       err.permanent = true;
@@ -142,7 +151,16 @@ export async function processSyncQueue(): Promise<{ synced: number; failed: numb
   return { synced, failed, remaining: await countPending() };
 }
 
+async function resetStuckProcessing(): Promise<void> {
+  const stuck = await db.outbox.where('status').equals('processing').toArray();
+  for (const item of stuck) {
+    await db.outbox.update(item.id, { status: 'pending' });
+  }
+}
+
 export function startSyncWatchers(): () => void {
+  void resetStuckProcessing().then(() => processSyncQueue());
+
   const onOnline = () => {
     void processSyncQueue();
   };

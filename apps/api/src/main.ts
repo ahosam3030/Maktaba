@@ -7,6 +7,10 @@ import { uploadsRoot } from './uploads';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // إن كان خلف proxy: TRUST_PROXY=1
+  if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', 1);
+  }
   // صور المنتجات: http://host:3000/uploads/...
   app.useStaticAssets(uploadsRoot(), { prefix: '/uploads/' });
   const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')

@@ -17,17 +17,26 @@ import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { SettingsController } from './settings.controller';
 
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret && process.env.NODE_ENV === 'production') {
-  throw new Error('JWT_SECRET must be set in production.');
+const WEAK_JWT = new Set([
+  '',
+  'development-only-change-before-deploy',
+  'replace-with-a-long-random-secret-before-deployment',
+  'change-me',
+  'secret',
+]);
+const jwtSecret = (process.env.JWT_SECRET || '').trim();
+if (!jwtSecret || WEAK_JWT.has(jwtSecret) || jwtSecret.length < 32) {
+  throw new Error(
+    'JWT_SECRET must be set to a strong random string (min 32 characters). Update apps/api/.env',
+  );
 }
 
 @Module({
   imports: [
     PrismaModule,
     JwtModule.register({
-      secret: jwtSecret || 'development-only-change-before-deploy',
-      signOptions: { expiresIn: '8h' },
+      secret: jwtSecret,
+      signOptions: { expiresIn: '2h' },
     }),
   ],
   controllers: [

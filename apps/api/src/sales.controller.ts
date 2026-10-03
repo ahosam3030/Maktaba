@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
-import { computeStockPieces, assertSufficientStock, roundStock } from './stock.util';
+import { computeStockPieces, assertSufficientStock, roundStock, piecesFromSaleLine } from './stock.util';
 
 type SaleDraft = {
   productId?: string;
@@ -72,27 +72,33 @@ export class SalesController {
       return { productId, productName, unit, quantity, unitPrice };
     });
 
-    // تجميع كميات المخزون فقط (بنود لها productId)
-    const grouped = new Map<string, number>();
-    for (const item of parsed) {
-      if (!item.productId) continue;
-      grouped.set(item.productId, (grouped.get(item.productId) || 0) + item.quantity);
-    }
+    // أصناف المخزون فقط (سيتم تحويل العلبة → قطعة حسب piecesPerPack داخل المعاملة)
+    const productIds = [...new Set(parsed.map((p) => p.productId).filter(Boolean))] as string[];
 
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-        const products = new Map<string, { id: string; name: string; currentCost: Prisma.Decimal }>();
-        // قفل صفوف المنتجات ثم إعادة فحص الرصيد داخل نفس المعاملة
-        for (const [productId, requested] of grouped) {
+        const products = new Map<
+          string,
+          { id: string; name: string; currentCost: Prisma.Decimal; piecesPerPack: number }
+        >();
+        const piecesNeeded = new Map<string, number>();
+
+        for (const productId of productIds) {
           await this.lockProductRow(tx, user.organizationId, productId);
           const product = await tx.product.findFirst({
             where: { id: productId, organizationId: user.organizationId },
           });
           if (!product) throw new BadRequestException('أحد الأصناف غير موجود في مكتبتك.');
+          const ppp = product.piecesPerPack || 1;
+          let need = 0;
+          for (const line of parsed) {
+            if (line.productId !== productId) continue;
+            need += piecesFromSaleLine(line.quantity, line.unit, ppp);
+          }
           const stock = await this.currentStockTx(tx, user.organizationId, productId);
           try {
-            assertSufficientStock(stock, requested, product.name);
+            assertSufficientStock(stock, need, product.name);
           } catch (e) {
             throw new BadRequestException(e instanceof Error ? e.message : 'رصيد غير كافٍ.');
           }
@@ -100,7 +106,9 @@ export class SalesController {
             id: product.id,
             name: product.name,
             currentCost: product.currentCost,
+            piecesPerPack: ppp,
           });
+          piecesNeeded.set(productId, need);
         }
 
         const lines = parsed.map((item) => {
@@ -167,7 +175,7 @@ export class SalesController {
           include: { items: true },
         });
 
-        for (const [productId, quantity] of grouped) {
+        for (const [productId, quantity] of piecesNeeded) {
           await tx.stockMovement.create({
             data: {
               organizationId: user.organizationId,
@@ -175,7 +183,7 @@ export class SalesController {
               quantity: new Prisma.Decimal(-quantity),
               type: 'SALE',
               reason: `بيع ${invoiceNumber}`,
-              notes: `خصم آلي من المخزون للفاتورة ${invoiceNumber}`,
+              notes: `خصم آلي من المخزون للفاتورة ${invoiceNumber} (${quantity} قطعة)`,
             },
           });
         }

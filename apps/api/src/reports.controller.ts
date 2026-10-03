@@ -90,7 +90,7 @@ export class ReportsController {
         .filter((m) => m.type === 'SALE')
         .reduce((sum, m) => sum + Number(m.quantity), 0);
       const adjusted = product.stockMovements
-        .filter((m) => m.type !== 'SALE')
+        .filter((m) => m.type !== 'SALE' && m.type !== 'RETURN')
         .reduce((sum, m) => sum + Number(m.quantity), 0);
       const stock = purchased - returned - sold + adjusted;
       const cost = Number(product.currentCost) || 0;
@@ -125,16 +125,30 @@ export class ReportsController {
     let salesNet = 0;
     let salesPaid = 0;
     let cogs = 0;
-    let salesCount = sales.length;
+    let saleReturnsValue = 0;
+    let saleReturnsCogs = 0;
     for (const sale of sales) {
       salesRevenue += Number(sale.subtotal);
       salesDiscount += Number(sale.discount);
       salesNet += Number(sale.total);
       salesPaid += Number(sale.paidAmount);
+      const saleTotal = Number(sale.total) || 0;
+      const saleSub = Number(sale.subtotal) || 0;
       for (const item of sale.items) {
-        cogs += Number(item.unitCost) * Number(item.quantity);
+        const qty = Number(item.quantity) || 0;
+        const returned = Number((item as { returnedQuantity?: number | string }).returnedQuantity || 0);
+        const effectiveQty = Math.max(0, qty - returned);
+        cogs += effectiveQty * Number(item.unitCost || 0);
+        if (returned > 0) {
+          const lineShare = saleSub > 0 ? (Number(item.lineTotal) / saleSub) * saleTotal : Number(item.lineTotal);
+          saleReturnsValue += (returned / qty) * lineShare;
+          saleReturnsCogs += returned * Number(item.unitCost || 0);
+        }
       }
     }
+    salesNet = Math.max(0, salesNet - saleReturnsValue);
+    salesRevenue = Math.max(0, salesRevenue - saleReturnsValue);
+
     // also from allSalesItems if needed - already in sales.items
     void allSalesItems;
     const grossProfit = salesNet - cogs;
@@ -192,7 +206,13 @@ export class ReportsController {
     // supplier debt ≈ sum(invoice.total - invoice.paidAmount) - returns, payments outside invoice reduce debt further
     const openOnInvoices = allInvoices.reduce((s, i) => s + Math.max(0, Number(i.total) - Number(i.paidAmount)), 0);
     // Extra payments not tied to paidAmount field are hard; use openOnInvoices as primary debt signal
+    // مديونية الموردين = (إجمالي فواتير الوارد − مدفوع على الفواتير − دفعات منفصلة − مرتجعات) بحد أدنى 0
+    // openOnInvoices أصلاً = sum(total - paidAmount) على الفواتير
+    const extraPayments = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    // تجنّب خصم المدفوع مرتين: openOnInvoices يخصم paidAmount؛ الدفعات المنفصلة تخصم أيضاً
     const supplierDebt = Math.max(0, openOnInvoices - Number(allReturns._sum.total ?? 0));
+    // ملاحظة: إن كانت الدفعات تحدّث paidAmount على الفاتورة فـ openOnInvoices كافٍ؛ وإلا تُطرح الدفعات:
+    // const supplierDebt = Math.max(0, openOnInvoices - extraPayments - Number(allReturns._sum.total ?? 0));
 
     // --- Cash ---
     let cashIncome = 0;

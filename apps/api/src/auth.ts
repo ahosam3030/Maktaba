@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, createParamDecorator, ForbiddenException, SetMetadata } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
+import { PrismaService } from './prisma.service';
 
 export type AuthUser = {
   userId: string;
@@ -46,7 +47,10 @@ export const RequirePermission = (permission: Permission) => SetMetadata(PERMISS
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const header = request.headers.authorization as string | undefined;
@@ -59,14 +63,31 @@ export class JwtAuthGuard implements CanActivate {
         permissions?: string[];
       }>(header.slice(7));
       if (!payload.userId || !payload.organizationId) throw new Error('invalid token');
+
+      // تحقق حي من قاعدة البيانات: مستخدم نشط + نفس المكتبة + أحدث دور وصلاحيات
+      const dbUser = await this.prisma.user.findFirst({
+        where: { id: payload.userId, organizationId: payload.organizationId },
+        select: { id: true, role: true, permissions: true, active: true, organizationId: true },
+      });
+      if (!dbUser || dbUser.active === false) {
+        throw new UnauthorizedException('الحساب غير موجود أو موقوف.');
+      }
+      let permissions: string[] = [];
+      try {
+        permissions = dbUser.permissions ? (JSON.parse(dbUser.permissions) as string[]) : [];
+        if (!Array.isArray(permissions)) permissions = [];
+      } catch {
+        permissions = Array.isArray(payload.permissions) ? payload.permissions : [];
+      }
       request.user = {
-        userId: payload.userId,
-        organizationId: payload.organizationId,
-        role: payload.role || 'USER',
-        permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+        userId: dbUser.id,
+        organizationId: dbUser.organizationId,
+        role: dbUser.role || 'USER',
+        permissions,
       } satisfies AuthUser;
       return true;
-    } catch {
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
       throw new UnauthorizedException('جلسة الدخول غير صالحة أو انتهت.');
     }
   }

@@ -7,8 +7,11 @@ import { AuditService } from './audit.service';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
 function clientIp(req: Request): string {
-  const xf = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
-  return xf || req.ip || req.socket?.remoteAddress || 'unknown';
+  // لا نثق في X-Forwarded-For إلا عند TRUST_PROXY (يضبطه Nest على req.ip)
+  if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true') {
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+  }
+  return req.socket?.remoteAddress || req.ip || 'unknown';
 }
 
 @Controller('auth')
@@ -127,21 +130,53 @@ export class AuthController {
     return result;
   }
 
-  /** حذف المكتبة من صفحة الدخول بعد التحقق بالبريد وكلمة المرور (مالك فقط) */
+  /**
+   * حذف المكتبة من شاشة الدخول — محمي بـ rate-limit وتسجيل فشل المحاولات.
+   * يُفضّل الحذف من داخل النظام (DELETE /auth/organization) بعد تسجيل الدخول.
+   */
   @Post('delete-organization')
   async deleteOrganizationPublic(
     @Body() body: { email?: string; password?: string; confirmSlug?: string },
     @Req() req: Request,
   ) {
-    const result = await this.auth.deleteOrganizationWithCredentials(body);
-    await this.audit.log({
-      action: 'ORG_DELETE_PUBLIC',
-      entity: 'Organization',
-      ip: clientIp(req),
-      userAgent: (req.headers['user-agent'] as string) || '',
-      meta: { email: body.email, slug: body.confirmSlug },
-      success: true,
-    });
-    return result;
+    const ip = clientIp(req);
+    const ua = (req.headers['user-agent'] as string) || '';
+    const email = (body.email || '').trim().toLowerCase();
+    const limit = checkRateLimit(`org-delete:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      await this.audit.log({
+        action: 'ORG_DELETE_PUBLIC_RATE_LIMIT',
+        ip,
+        userAgent: ua,
+        meta: { email },
+        success: false,
+      });
+      throw new HttpException(
+        `محاولات كثيرة. حاول بعد ${limit.retryAfterSec} ثانية.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    try {
+      const result = await this.auth.deleteOrganizationWithCredentials(body);
+      await this.audit.log({
+        action: 'ORG_DELETE_PUBLIC',
+        entity: 'Organization',
+        ip,
+        userAgent: ua,
+        meta: { email, slug: body.confirmSlug },
+        success: true,
+      });
+      return result;
+    } catch (e) {
+      await this.audit.log({
+        action: 'ORG_DELETE_PUBLIC',
+        entity: 'Organization',
+        ip,
+        userAgent: ua,
+        meta: { email, slug: body.confirmSlug },
+        success: false,
+      });
+      throw e;
+    }
   }
 }

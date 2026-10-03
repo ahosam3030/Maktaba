@@ -20,10 +20,22 @@ if not exist "apps\api\.env" (
   echo [إعداد] إنشاء ملف apps\api\.env ...
   copy /Y "apps\api\.env.example" "apps\api\.env" >nul
   echo.
-  echo تم إنشاء .env بالقيم الافتراضية.
-  echo لو PostgreSQL عندك بباسورد مختلف لمستخدم postgres،
-  echo عدّل السطر DATABASE_URL داخل: apps\api\.env
+  echo تم إنشاء .env — يُولَّد JWT_SECRET عشوائي الآن...
+  powershell -NoProfile -Command "$s=-join((1..48)|ForEach-Object{'{0:x}' -f (Get-Random -Max 16)}); (Get-Content 'apps\api\.env') -replace 'JWT_SECRET=.*','JWT_SECRET="'+$s+'"' | Set-Content 'apps\api\.env' -Encoding UTF8"
+  echo لو PostgreSQL عندك بباسورد مختلف، عدّل DATABASE_URL داخل apps\api\.env
   echo.
+) else (
+  rem إن كان السر افتراضيًا ضعيفًا، ولّد واحدًا قويًا
+  findstr /C:"development-only-change-before-deploy" "apps\api\.env" >nul
+  if not errorlevel 1 (
+    echo [أمان] استبدال JWT_SECRET الضعيف...
+    powershell -NoProfile -Command "$s=-join((1..48)|ForEach-Object{'{0:x}' -f (Get-Random -Max 16)}); (Get-Content 'apps\api\.env') -replace 'JWT_SECRET=.*','JWT_SECRET="'+$s+'"' | Set-Content 'apps\api\.env' -Encoding UTF8"
+  )
+  findstr /C:"replace-with-a-long-random-secret" "apps\api\.env" >nul
+  if not errorlevel 1 (
+    echo [أمان] استبدال JWT_SECRET الافتراضي...
+    powershell -NoProfile -Command "$s=-join((1..48)|ForEach-Object{'{0:x}' -f (Get-Random -Max 16)}); (Get-Content 'apps\api\.env') -replace 'JWT_SECRET=.*','JWT_SECRET="'+$s+'"' | Set-Content 'apps\api\.env' -Encoding UTF8"
+  )
 )
 
 echo [1/4] تثبيت حزم الخادم إن لزم...
@@ -49,7 +61,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo [3/4] تطبيق قاعدة البيانات...
-call npx prisma db push --skip-generate
+call npx prisma migrate deploy
 if errorlevel 1 (
   echo.
   echo [تحذير] تعذر تحديث قاعدة البيانات.

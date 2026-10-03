@@ -280,19 +280,12 @@ export class InventoryController {
     );
   }
 
+  /** أُوقف لأسباب أمنية — كان يسمح بمسح حركات مخزون دون أثر تدقيق كافٍ */
   @Post('repair-purchase-delete-adjustments')
-  async repairPurchaseDeleteAdjustments(@CurrentUser() user: AuthUser) {
-    const result = await this.prisma.stockMovement.deleteMany({
-      where: {
-        organizationId: user.organizationId,
-        type: 'ADJUSTMENT',
-        OR: [
-          { reason: { startsWith: 'حذف فاتورة وارد' } },
-          { notes: { startsWith: 'إلغاء كميات فاتورة الوارد' } },
-        ],
-      },
-    });
-    return { deletedMovements: result.count };
+  repairPurchaseDeleteAdjustments() {
+    throw new BadRequestException(
+      'هذا المسار أُوقف. استخدم تسوية جرد يدوية موثّقة إن لزم تصحيح رصيد.',
+    );
   }
 
   private mapProduct(product: {

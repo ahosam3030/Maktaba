@@ -219,13 +219,46 @@ export class SupplierPaymentsController {
     }
     const paymentDate = body.paymentDate ? new Date(body.paymentDate) : new Date();
     if (Number.isNaN(paymentDate.getTime())) throw new BadRequestException('تاريخ الدفعة غير صحيح.');
-    return this.prisma.supplierPayment.create({
-      data: {
-        organizationId: user.organizationId, supplierId, invoiceId: body.invoiceId || null,
-        amount: new Prisma.Decimal(amount), paymentDate, method: body.method?.trim() || 'CASH',
-        notes: body.notes?.trim() || null,
-      },
-      include: { supplier: { select: { id: true, name: true } } },
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.supplierPayment.create({
+        data: {
+          organizationId: user.organizationId,
+          supplierId,
+          invoiceId: body.invoiceId || null,
+          amount: new Prisma.Decimal(amount),
+          paymentDate,
+          method: body.method?.trim() || 'CASH',
+          notes: body.notes?.trim() || null,
+        },
+        include: { supplier: { select: { id: true, name: true } } },
+      });
+      if (body.invoiceId) {
+        const inv = await tx.purchaseInvoice.findFirst({
+          where: { id: body.invoiceId, organizationId: user.organizationId },
+        });
+        if (inv) {
+          const newPaid = Number(inv.paidAmount) + amount;
+          await tx.purchaseInvoice.update({
+            where: { id: inv.id },
+            data: { paidAmount: new Prisma.Decimal(Math.min(newPaid, Number(inv.total))) },
+          });
+        }
+      }
+      // قيد خزينة: مصروف دفع مورد
+      await tx.cashTransaction.create({
+        data: {
+          organizationId: user.organizationId,
+          userId: user.userId,
+          kind: 'EXPENSE',
+          date: paymentDate,
+          category: 'موردين',
+          amount: new Prisma.Decimal(amount),
+          method: (body.method?.trim() || 'CASH').toUpperCase().includes('BANK') ? 'BANK' : 'CASH',
+          reference: `SUPPLIER_PAY:${payment.id}`,
+          notes: `دفعة مورد ${payment.supplier?.name || supplierId}`,
+        },
+      });
+      return payment;
     });
   }
 }
