@@ -414,3 +414,36 @@ model IdempotencyRecord {
 
   @@index([organizationId, createdAt])
 }
+
+
+model DayClose {
+  id             String   @id @default(cuid())
+  organizationId String
+  businessDate   DateTime @db.Date
+  openingFloat   Decimal  @default(0) @db.Decimal(12, 3)
+  cashSales      Decimal  @default(0) @db.Decimal(12, 3)
+  cashIn         Decimal  @default(0) @db.Decimal(12, 3)
+  cashOut        Decimal  @default(0) @db.Decimal(12, 3)
+  expectedCash   Decimal  @default(0) @db.Decimal(12, 3)
+  countedCash    Decimal  @default(0) @db.Decimal(12, 3)
+  variance       Decimal  @default(0) @db.Decimal(12, 3)
+  notes          String?
+  closedByUserId String?
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, businessDate])
+  @@index([organizationId, businessDate])
+}
+
+model DrawerEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String
+  amount         Decimal  @default(0) @db.Decimal(12, 3)
+  reason         String?
+  userId         String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, kind])
+}

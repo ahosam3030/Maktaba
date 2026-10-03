@@ -3,6 +3,8 @@ import { PrismaService } from './prisma.service';
 import { AuthUser, CurrentUser, JwtAuthGuard, PermissionsGuard } from './auth';
 import { AuditService } from './audit.service';
 
+export type PaperSize = 'thermal_58' | 'thermal_80' | 'a4';
+
 export type PrintSettingsDto = {
   brandTitle: string;
   brandSubtitle: string;
@@ -12,18 +14,28 @@ export type PrintSettingsDto = {
   serviceTags: string[];
   invoiceTitle: string;
   footerText: string;
+  /** حجم ورقة الفاتورة: حراري 58مم / 80مم أو A4 */
+  paperSize: PaperSize;
 };
 
 const DEFAULTS: PrintSettingsDto = {
   brandTitle: 'مركز المهندس',
   brandSubtitle: 'للخدمات العلمية والطباعة والأدوات المكتبية',
   phone: '',
-  address: 'شارع بورسعيد أمام الإدارة التعليمية الجديدة — شرق مستشفى العدوة المركزي',
+  address: '',
   watermarkText: 'مركز المهندس للخدمات العلمية والطباعة',
   serviceTags: ['خدمات علمية', 'تصوير وطباعة', 'أدوات مكتبية'],
   invoiceTitle: 'فاتورة مبيعات',
   footerText: 'شكرًا لثقتكم بنا',
+  paperSize: 'thermal_80',
 };
+
+function normalizePaperSize(v: unknown): PaperSize {
+  const s = String(v || '').trim();
+  if (s === 'thermal_58' || s === '58') return 'thermal_58';
+  if (s === 'a4' || s === 'A4') return 'a4';
+  return 'thermal_80';
+}
 
 function parseSettings(raw: string | null | undefined): PrintSettingsDto {
   if (!raw?.trim()) {
@@ -43,6 +55,7 @@ function parseSettings(raw: string | null | undefined): PrintSettingsDto {
       serviceTags: tags.length ? tags : [...DEFAULTS.serviceTags],
       invoiceTitle: String(parsed.invoiceTitle ?? DEFAULTS.invoiceTitle).trim() || DEFAULTS.invoiceTitle,
       footerText: String(parsed.footerText ?? DEFAULTS.footerText).trim() || DEFAULTS.footerText,
+      paperSize: normalizePaperSize(parsed.paperSize),
     };
   } catch {
     return { ...DEFAULTS, serviceTags: [...DEFAULTS.serviceTags] };
@@ -66,6 +79,7 @@ function sanitize(body: Partial<PrintSettingsDto> | undefined): PrintSettingsDto
     serviceTags: tags.length ? tags : [...DEFAULTS.serviceTags],
     invoiceTitle: str(body?.invoiceTitle, DEFAULTS.invoiceTitle, 80),
     footerText: str(body?.footerText, DEFAULTS.footerText, 200),
+    paperSize: normalizePaperSize(body?.paperSize),
   };
 }
 

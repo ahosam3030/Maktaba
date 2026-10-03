@@ -53,7 +53,29 @@ export function Settings() {
     setForm((old) => ({ ...old, [key]: value }));
   }
 
+  async function handleBackupExport() {
+    if (!isOwner) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const data = await apiRequest<unknown>('/backup/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `maktaba-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setNotice('تم تنزيل النسخة الاحتياطية JSON.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'فشل التصدير');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleSaveInvoice() {
+
     const tags = tagsText
       .split(/\n|,/)
       .map((t) => t.trim())
@@ -451,6 +473,19 @@ export function Settings() {
                     placeholder="شكرًا لثقتكم بنا"
                   />
                 </label>
+                <label className="pur-field">
+                  حجم ورقة الفاتورة (حراري / A4)
+                  <select
+                    value={form.paperSize || 'thermal_80'}
+                    onChange={(e) =>
+                      update('paperSize', e.target.value as InvoiceSettings['paperSize'])
+                    }
+                  >
+                    <option value="thermal_58">حراري 58 مم</option>
+                    <option value="thermal_80">حراري 80 مم</option>
+                    <option value="a4">A4 عادي</option>
+                  </select>
+                </label>
                 <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
                   وسوم الخدمات (سطر لكل وسم)
                   <textarea
@@ -471,6 +506,11 @@ export function Settings() {
               <button className="secondary-btn" type="button" onClick={handleResetInvoice}>
                 استعادة الافتراضي
               </button>
+              {isOwner && (
+                <button className="secondary-btn" type="button" disabled={busy} onClick={() => void handleBackupExport()}>
+                  تنزيل نسخة احتياطية
+                </button>
+              )}
             </div>
           </section>
         </div>

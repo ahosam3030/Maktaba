@@ -16,6 +16,8 @@ import { ServicesController, ServiceReceiptsController } from './services.contro
 import { AuditService } from './audit.service';
 import { AuditController } from './audit.controller';
 import { SettingsController } from './settings.controller';
+import { CashOpsController } from './cash-ops.controller';
+import { BackupController } from './backup.controller';
 import { IdempotencyInterceptor } from './idempotency.interceptor';
 
 const WEAK_JWT = new Set([
@@ -56,6 +58,8 @@ if (!jwtSecret || WEAK_JWT.has(jwtSecret) || jwtSecret.length < 32) {
     ServiceReceiptsController,
     AuditController,
     SettingsController,
+    CashOpsController,
+    BackupController,
   ],
   providers: [
       AuthService,

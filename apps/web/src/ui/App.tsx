@@ -20,6 +20,8 @@ import { Sales } from './Sales';
 import { Printing } from './Printing';
 import { Accounting } from './Accounting';
 import { Settings } from './Settings';
+import { Labels } from './Labels';
+import { DayClose } from './DayClose';
 import { Reports } from './Reports';
 import { SectionIcon, IconLogout, IconLock, BrandLogo, WelcomeArt, type SectionIconKey } from './Icons';
 
@@ -55,7 +57,7 @@ export function App() {
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
   const [activeSection, setActiveSection] = useState<
-    'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'settings'
+    'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'settings' | 'labels' | 'dayclose'
   >('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try {
@@ -310,6 +312,8 @@ export function App() {
     { key: 'accounting', icon: 'accounting', label: 'الخزينة', desc: 'الوارد والمنصرف', show: hasPermission(sessionUser, 'accounting') },
     { key: 'reports', icon: 'reports', label: 'التقارير', desc: 'الأرباح ورأس المال', show: hasPermission(sessionUser, 'reports') },
     { key: 'printing', icon: 'printing', label: 'الخدمات', desc: 'الخدمات والإيصالات', show: hasPermission(sessionUser, 'printing') },
+    { key: 'labels', icon: 'inventory', label: 'ملصقات', desc: 'طباعة باركود', show: hasPermission(sessionUser, 'inventory') },
+    { key: 'dayclose', icon: 'accounting', label: 'إغلاق يومية', desc: 'الدرج والعد', show: hasPermission(sessionUser, 'accounting') },
     { key: 'settings', icon: 'settings', label: 'الإعدادات', desc: 'حسابات، طباعة، الجهاز', show: isLoggedIn },
   ];
 
@@ -450,6 +454,16 @@ export function App() {
               <SectionIcon name="inventory" className="nav-icon" /><span>المخزون</span>
             </button>
           )}
+          {hasPermission(sessionUser, 'inventory') && (
+            <button type="button" tabIndex={-1} className={activeSection === 'labels' ? 'active' : ''} onClick={() => setActiveSection('labels')}>
+              <SectionIcon name="inventory" className="nav-icon" /><span>ملصقات</span>
+            </button>
+          )}
+          {hasPermission(sessionUser, 'accounting') && (
+            <button type="button" tabIndex={-1} className={activeSection === 'dayclose' ? 'active' : ''} onClick={() => setActiveSection('dayclose')}>
+              <SectionIcon name="accounting" className="nav-icon" /><span>إغلاق يومية</span>
+            </button>
+          )}
           {hasPermission(sessionUser, 'printing') && (
             <button type="button" tabIndex={-1} className={activeSection === 'printing' ? 'active' : ''} onClick={() => setActiveSection('printing')}>
               <SectionIcon name="printing" className="nav-icon" /><span>الخدمات</span>
@@ -541,7 +555,11 @@ export function App() {
                           ? 'الخدمات'
                           : activeSection === 'settings'
                               ? 'الإعدادات'
-                              : 'لوحة التحكم'}
+                              : activeSection === 'labels'
+                                ? 'ملصقات الباركود'
+                                : activeSection === 'dayclose'
+                                  ? 'إغلاق اليومية'
+                                  : 'لوحة التحكم'}
           </h1>
           <p className="topbar-sub">{isLoggedIn ? (sessionOrg?.name || 'نظام إدارة المكتبة') : 'أدخل بياناتك للمتابعة'}</p>
           </div>
@@ -652,6 +670,10 @@ export function App() {
           <Reports />
         ) : activeSection === 'settings' && isLoggedIn ? (
           <Settings />
+        ) : activeSection === 'labels' && hasPermission(sessionUser, 'inventory') ? (
+          <Labels />
+        ) : activeSection === 'dayclose' && hasPermission(sessionUser, 'accounting') ? (
+          <DayClose />
         ) : null}
       </main>
     </div>

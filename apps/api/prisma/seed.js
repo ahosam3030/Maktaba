@@ -50,6 +50,8 @@ async function main() {
   console.log('⚠ مسح كل المؤسسات والمستخدمين والبيانات...');
 
   // ترتيب الحذف يحترم قيود FK
+  await prisma.drawerEvent.deleteMany().catch(() => {});
+  await prisma.dayClose.deleteMany().catch(() => {});
   await prisma.saleReturnItem.deleteMany().catch(() => {});
   await prisma.saleReturn.deleteMany().catch(() => {});
   await prisma.serviceReceiptItem.deleteMany().catch(() => {});

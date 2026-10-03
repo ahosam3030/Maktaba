@@ -11,6 +11,7 @@ export type InvoiceSettings = {
   serviceTags: string[];
   invoiceTitle: string;
   footerText: string;
+  paperSize: 'thermal_58' | 'thermal_80' | 'a4';
 };
 
 const STORAGE_KEY = 'maktaba_invoice_settings_v1';
@@ -18,12 +19,13 @@ const STORAGE_KEY = 'maktaba_invoice_settings_v1';
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   brandTitle: 'مركز المهندس',
   brandSubtitle: 'للخدمات العلمية والطباعة والأدوات المكتبية',
-  phone: '01127897245',
+  phone: '',
   address: 'شارع بورسعيد أمام الإدارة التعليمية الجديدة — شرق مستشفى العدوة المركزي',
   watermarkText: 'مركز المهندس للخدمات العلمية والطباعة',
   serviceTags: ['خدمات علمية', 'تصوير وطباعة', 'أدوات مكتبية'],
   invoiceTitle: 'فاتورة مبيعات',
   footerText: 'شكرًا لثقتكم بنا',
+  paperSize: 'thermal_80',
 };
 
 function normalize(parsed: Partial<InvoiceSettings> | null | undefined): InvoiceSettings {
@@ -50,6 +52,9 @@ function normalize(parsed: Partial<InvoiceSettings> | null | undefined): Invoice
     footerText:
       String(parsed?.footerText ?? DEFAULT_INVOICE_SETTINGS.footerText).trim() ||
       DEFAULT_INVOICE_SETTINGS.footerText,
+    paperSize: (['thermal_58', 'thermal_80', 'a4'].includes(String(parsed?.paperSize))
+      ? (String(parsed?.paperSize) as InvoiceSettings['paperSize'])
+      : DEFAULT_INVOICE_SETTINGS.paperSize),
   };
 }
 
