@@ -313,6 +313,103 @@ export function App() {
     { key: 'settings', icon: 'settings', label: 'الإعدادات', desc: 'حسابات، طباعة، الجهاز', show: isLoggedIn },
   ];
 
+  /* واجهة الدخول التجارية — بدون قائمة التشغيل */
+  if (!isLoggedIn) {
+    return (
+        <div className="product-login">
+          <div className="product-login-bg" aria-hidden />
+          <header className="product-login-header">
+            <div className="product-brand">
+              <span className="product-brand-mark" aria-hidden>م</span>
+              <div>
+                <strong>Maktaba</strong>
+                <span>نظام إدارة مراكز الخدمات والمكتبات</span>
+              </div>
+            </div>
+            <span className="product-version">v1.0</span>
+          </header>
+
+          <div className="product-login-body">
+            <section className="product-login-pitch">
+              <p className="product-eyebrow">منتج تشغيلي للمراكز</p>
+              <h1>إدارة المشتريات والمبيعات والخدمات في منصة واحدة</h1>
+              <p className="product-lead">
+                صُمّم لمراكز الخدمات والمكتبات: مخزون، فواتير، خزينة، تقارير، وصلاحيات للموظفين.
+              </p>
+              <ul className="product-points">
+                <li>
+                  <strong>عمليات مترابطة</strong>
+                  <span>وارد → مخزون → بيع → خزينة</span>
+                </li>
+                <li>
+                  <strong>خدمات وإيصالات</strong>
+                  <span>طباعة وتصوير وخدمات المركز</span>
+                </li>
+                <li>
+                  <strong>صلاحيات واضحة</strong>
+                  <span>المالك يضيف الموظفين من الإعدادات</span>
+                </li>
+              </ul>
+            </section>
+
+            <section className="product-login-card">
+              <div className="product-login-card-head">
+                <h2>تسجيل الدخول</h2>
+                <p>استخدم البريد وكلمة المرور الصادرة من إدارة المركز</p>
+              </div>
+              <div className="form-grid auth-form">
+                <label>
+                  البريد الإلكتروني
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    dir="ltr"
+                    placeholder="name@example.com"
+                    autoComplete="username"
+                  />
+                </label>
+                <label>
+                  كلمة المرور
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    dir="ltr"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleLogin();
+                    }}
+                  />
+                </label>
+              </div>
+              <button
+                className="primary-btn product-login-submit"
+                type="button"
+                onClick={() => void handleLogin()}
+                disabled={busy}
+              >
+                {busy ? 'جارٍ الدخول...' : 'دخول إلى النظام'}
+              </button>
+              {message && (
+                <p className={`feedback product-login-msg${/فشل|غير|خطأ|غير صحيحة/i.test(message) ? ' is-error' : ''}`} role="status">
+                  {message}
+                </p>
+              )}
+              <p className="product-login-footnote">
+                لا يمكن إنشاء حساب من هذه الشاشة. حسابات الموظفين يُنشئها المالك بعد الدخول.
+              </p>
+            </section>
+          </div>
+
+          <footer className="product-login-footer">
+            <span>© Maktaba — للاستخدام الداخلي للمركز</span>
+          </footer>
+        </div>
+      );
+    }
+
   return (
     <div className={`app-shell${sidebarOpen ? "" : " app-shell--sidebar-collapsed"}`}>
       <aside className={`sidebar${sidebarOpen ? "" : " sidebar--collapsed"}`} aria-hidden={!sidebarOpen}>
@@ -371,7 +468,7 @@ export function App() {
           )}
         </nav>
         <div className="sidebar-footer">
-          {isLoggedIn && sessionUser ? (
+          {sessionUser ? (
             <>
               <div className="user-chip">
                 <strong>{sessionUser.fullName}</strong>
@@ -383,9 +480,7 @@ export function App() {
                 <span>تسجيل الخروج</span>
               </button>
             </>
-          ) : (
-            <span className="muted-sm">سجّل الدخول للمتابعة</span>
-          )}
+          ) : null}
         </div>
       </aside>
 
@@ -479,35 +574,7 @@ export function App() {
           </div>
         </div>
 
-        {activeSection === 'dashboard' && !isLoggedIn && (
-          <div className="auth-layout">
-            <section className="auth-hero">
-              <p className="eyebrow">نظام إدارة المكتبات والطباعة</p>
-              <h2>كل عمليات مكتبتك في مكان واحد</h2>
-              <ul className="auth-features">
-                <li>مشتريات ومخزون ومبيعات مترابطة</li>
-                <li>خزينة وتقارير أرباح ورأس مال</li>
-                <li>المالك يضيف حسابات الموظفين من الإعدادات بعد الدخول</li>
-                <li>فواتير وإيصالات قابلة للطباعة</li>
-              </ul>
-            </section>
-
-            <section className="auth-card">
-              <div className="auth-card-icon">
-                <IconLock size={28} />
-              </div>
-              <h3>تسجيل الدخول</h3>
-              <p className="muted-sm">
-                للموظفين والمالك. لا يمكن إنشاء حسابات من هنا — المالك فقط يضيف المستخدمين من الإعدادات بعد الدخول.
-              </p>
-              <div className="form-grid auth-form">
-                <label>
-                  البريد الإلكتروني
-                  <input
-                    type="email"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    dir="ltr"
+        dir="ltr"
                     placeholder="name@example.com"
                     autoComplete="username"
                   />
