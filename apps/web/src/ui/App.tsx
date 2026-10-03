@@ -38,7 +38,6 @@ export function App() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [showFirstSetup, setShowFirstSetup] = useState(false);
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
   const [activeSection, setActiveSection] = useState<
@@ -398,124 +397,52 @@ export function App() {
               <ul className="auth-features">
                 <li>مشتريات ومخزون ومبيعات مترابطة</li>
                 <li>خزينة وتقارير أرباح ورأس مال</li>
-                <li>المالك ينشئ حسابات الموظفين والصلاحيات</li>
+                <li>المالك يضيف حسابات الموظفين من الإعدادات بعد الدخول</li>
                 <li>فواتير وإيصالات قابلة للطباعة</li>
               </ul>
             </section>
 
             <section className="auth-card">
-              {!showFirstSetup ? (
-                <>
-                  <h3>تسجيل الدخول</h3>
-                  <p className="muted-sm">
-                    أدخل بريدك وكلمة المرور. إنشاء حسابات الموظفين يتم من داخل النظام بواسطة المالك فقط.
-                  </p>
-                  <div className="form-grid auth-form">
-                    <label>
-                      البريد الإلكتروني
-                      <input
-                        type="email"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        dir="ltr"
-                        placeholder="name@example.com"
-                        autoComplete="username"
-                      />
-                    </label>
-                    <label>
-                      كلمة المرور
-                      <input
-                        type="password"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        dir="ltr"
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void handleLogin();
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <div className="form-actions">
-                    <button className="primary-btn" type="button" onClick={() => void handleLogin()} disabled={busy}>
-                      {busy ? 'جارٍ الدخول...' : 'دخول'}
-                    </button>
-                  </div>
-                  {message && (
-                    <p className="feedback" role="status">
-                      {message}
-                    </p>
-                  )}
-                  <p className="muted-sm" style={{ marginTop: 18, textAlign: 'center' }}>
-                    أول تشغيل للخادم؟{' '}
-                    <button
-                      type="button"
-                      className="link-danger"
-                      style={{ color: '#0f766e' }}
-                      onClick={() => {
-                        setShowFirstSetup(true);
-                        setMessage('');
-                      }}
-                    >
-                      تثبيت مكتبة جديدة
-                    </button>
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3>تثبيت مكتبة جديدة</h3>
-                  <p className="muted-sm">
-                    لإنشاء مكتبة ومالك لأول مرة فقط. بعدها المالك يضيف المستخدمين من «الإعدادات».
-                  </p>
-                  <div className="form-grid auth-form">
-                    <label>
-                      اسم المكتبة
-                      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="اسم المكتبة" />
-                    </label>
-                    <label>
-                      المعرّف المختصر
-                      <input value={slug} onChange={(e) => setSlug(e.target.value)} dir="ltr" placeholder="library-name" />
-                      <small>إنجليزي وأرقام وشرطة فقط</small>
-                    </label>
-                    <label>
-                      الهاتف
-                      <input value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" />
-                    </label>
-                    <label>
-                      اسم المالك
-                      <input value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
-                    </label>
-                    <label>
-                      البريد
-                      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
-                    </label>
-                    <label>
-                      كلمة المرور
-                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" minLength={10} />
-                    </label>
-                  </div>
-                  <div className="form-actions">
-                    <button className="primary-btn" type="button" onClick={() => void handleRegister()} disabled={busy}>
-                      {busy ? 'جارٍ الإنشاء...' : 'إنشاء المكتبة والمالك'}
-                    </button>
-                    <button
-                      className="secondary-btn"
-                      type="button"
-                      onClick={() => {
-                        setShowFirstSetup(false);
-                        setMessage('');
-                      }}
-                    >
-                      رجوع للدخول
-                    </button>
-                  </div>
-                  {message && (
-                    <p className="feedback" role="status">
-                      {message}
-                    </p>
-                  )}
-                </>
+              <h3>تسجيل الدخول</h3>
+              <p className="muted-sm">
+                للموظفين والمالك. لا يمكن إنشاء حسابات من هنا — المالك فقط يضيف المستخدمين من الإعدادات بعد الدخول.
+              </p>
+              <div className="form-grid auth-form">
+                <label>
+                  البريد الإلكتروني
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    dir="ltr"
+                    placeholder="name@example.com"
+                    autoComplete="username"
+                  />
+                </label>
+                <label>
+                  كلمة المرور
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    dir="ltr"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleLogin();
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="form-actions">
+                <button className="primary-btn" type="button" onClick={() => void handleLogin()} disabled={busy}>
+                  {busy ? 'جارٍ الدخول...' : 'دخول'}
+                </button>
+              </div>
+              {message && (
+                <p className="feedback" role="status">
+                  {message}
+                </p>
               )}
             </section>
           </div>

@@ -25,7 +25,13 @@ export class AuthService {
     fullName?: string;
     email?: string;
     password?: string;
+    setupSecret?: string;
   }) {
+    const expected = process.env.SETUP_SECRET || '';
+    // بدون SETUP_SECRET في البيئة = التسجيل العام مقفول تمامًا
+    if (!expected || input.setupSecret !== expected) {
+      throw new ForbiddenException('التسجيل العام مقفول. المالك يضيف الحسابات من داخل النظام.');
+    }
     const organizationName = input.organizationName?.trim();
     const slug = input.slug?.trim().toLowerCase();
     const fullName = input.fullName?.trim();

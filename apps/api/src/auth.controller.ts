@@ -6,6 +6,7 @@ import { AuthUser, CurrentUser, JwtAuthGuard } from './auth';
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  /** التسجيل العام معطّل — إنشاء المكتبة عبر سكربت seed أو بمفتاح SETUP_SECRET */
   @Post('register')
   register(
     @Body()
@@ -16,6 +17,7 @@ export class AuthController {
       fullName?: string;
       email?: string;
       password?: string;
+      setupSecret?: string;
     },
   ) {
     return this.auth.register(body);
