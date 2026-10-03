@@ -462,6 +462,10 @@ export function App() {
                   {message}
                 </p>
               )}
+              <p className="muted-sm" style={{ marginTop: 12 }}>
+                أول تشغيل أو بعد مسح القاعدة: شغّل <strong>seed.bat</strong> ثم ادخل بـ{' '}
+                <span dir="ltr">admin@maktaba.local</span> / <span dir="ltr">Admin@12345</span>
+              </p>
             </section>
           </div>
         )}

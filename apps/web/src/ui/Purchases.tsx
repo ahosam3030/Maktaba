@@ -264,33 +264,60 @@ export function Purchases() {
     return `«${last.productName}»: آخر سعر ${last.unitCost} ج من ${last.supplier} بتاريخ ${last.date}`;
   }
 
-  function findCatalogProduct(barcode?: string, name?: string): InventoryProduct | undefined {
-    const bc = (barcode || '').trim().toLowerCase();
-    const nm = (name || '').trim().toLowerCase();
-    if (bc) {
-      const byBarcode = catalog.find((p) => (p.barcode || '').trim().toLowerCase() === bc);
-      if (byBarcode) return byBarcode;
-    }
-    if (nm) {
-      return catalog.find((p) => p.name.trim().toLowerCase() === nm);
-    }
-    return undefined;
+  function findCatalogProduct(query?: string): InventoryProduct | undefined {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return undefined;
+    const byBarcode = catalog.find((p) => (p.barcode || '').trim().toLowerCase() === q);
+    if (byBarcode) return byBarcode;
+    const exactName = catalog.find((p) => p.name.trim().toLowerCase() === q);
+    if (exactName) return exactName;
+    const contains = catalog.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q),
+    );
+    if (!contains.length) return undefined;
+    // فضّل الأصناف المتوفرة في المخزون
+    const inStock = contains.filter((p) => Number(p.stock) > 0);
+    const pool = inStock.length ? inStock : contains;
+    pool.sort((a, b) => Number(b.stock) - Number(a.stock) || a.name.localeCompare(b.name, 'ar'));
+    return pool[0];
   }
 
   function applyProductToLine(key: string, product: InventoryProduct) {
     const unitLabel = product.unit === 'PACK' ? 'علبة' : 'قطعة';
+    const ppp = Math.max(1, product.piecesPerPack || 1);
+    // currentCost في المخزون = تكلفة القطعة؛ عند الشراء بالعلبة نقترح سعر العلبة
+    const suggestedUnitCost =
+      product.currentCost > 0
+        ? unitLabel === 'علبة'
+          ? String(Number((product.currentCost * ppp).toFixed(4)))
+          : String(product.currentCost)
+        : '';
     updateDraft(key, {
       productId: product.id,
       productName: product.name,
       barcode: product.barcode || '',
       unitLabel,
-      piecesPerPack: String(product.piecesPerPack || 1),
-      // تكلفة الشراء الحالية كاقتراح لسعر الوحدة عند الشراء بالقطعة
-      unitCost: product.currentCost > 0 ? String(product.currentCost) : '',
+      piecesPerPack: String(ppp),
+      unitCost: suggestedUnitCost,
       salePrice: product.salePrice > 0 ? String(product.salePrice) : '',
       stock: product.stock,
     });
-    setNotice(`تم جلب «${product.name}» — المتبقي: ${product.stock} قطعة | تكلفة: ${product.currentCost} | بيع: ${product.salePrice}`);
+    setNotice(
+      `تم جلب «${product.name}» — المتبقي: ${product.stock} قطعة | تكلفة/قطعة: ${product.currentCost} | بيع: ${product.salePrice}`,
+    );
+  }
+
+  function ensureEmptyRowAfter(key: string) {
+    setLines((old) => {
+      const idx = old.findIndex((l) => l.key === key);
+      const hasEmptyAfter = old.some(
+        (l, i) => i > idx && !l.productName.trim() && !l.barcode.trim() && !l.unitCost,
+      );
+      if (hasEmptyAfter) return old;
+      return [...old, emptyDraftLine()];
+    });
   }
 
   function fillFromBarcode(key: string, barcode: string) {
@@ -299,14 +326,18 @@ export function Purchases() {
     const product = findCatalogProduct(bc);
     if (product) {
       applyProductToLine(key, product);
+      ensureEmptyRowAfter(key);
       return;
     }
     setNotice(`لا يوجد صنف مسجّل بالباركود «${bc}». يمكنك إدخاله كصنف جديد.`);
   }
 
   function fillFromProductName(key: string, name: string) {
-    const product = findCatalogProduct(undefined, name);
-    if (product) applyProductToLine(key, product);
+    const product = findCatalogProduct(name);
+    if (product) {
+      applyProductToLine(key, product);
+      ensureEmptyRowAfter(key);
+    }
   }
 
   function lineProfitPerPiece(l: DraftLine): number | null {
