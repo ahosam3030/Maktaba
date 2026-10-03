@@ -26,6 +26,7 @@ export function Purchases() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
+  const [catalog, setCatalog] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -45,6 +46,19 @@ export function Purchases() {
     quantity: string;
     piecesPerPack: string;
     unitCost: string;
+    salePrice: string;
+    productId?: string;
+    stock?: number | null;
+  };
+  type InventoryProduct = {
+    id: string;
+    name: string;
+    barcode: string | null;
+    unit: string;
+    piecesPerPack: number;
+    currentCost: number;
+    salePrice: number;
+    stock: number;
   };
   const newDraftKey = () => `P-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const emptyDraftLine = (): DraftLine => ({
@@ -55,6 +69,9 @@ export function Purchases() {
     quantity: '1',
     piecesPerPack: '1',
     unitCost: '',
+    salePrice: '',
+    productId: undefined,
+    stock: null,
   });
 
   const [supplierName, setSupplierName] = useState('');
@@ -84,13 +101,14 @@ export function Purchases() {
     }
     setLoading(true); setError('');
     try {
-      const [s, inv, pay, ret] = await Promise.all([
+      const [s, inv, pay, ret, stock] = await Promise.all([
         apiRequest<Supplier[]>('/suppliers'),
         apiRequest<Invoice[]>('/purchases/invoices'),
         apiRequest<Payment[]>('/suppliers/payments'),
         apiRequest<PurchaseReturn[]>('/purchases/returns'),
+        apiRequest<InventoryProduct[]>('/inventory'),
       ]);
-      setSuppliers(s); setInvoices(inv); setPayments(pay); setReturns(ret);
+      setSuppliers(s); setInvoices(inv); setPayments(pay); setReturns(ret); setCatalog(stock);
       if (!paymentSupplierId && s[0]) setPaymentSupplierId(s[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذر تحميل بيانات المشتريات.');
@@ -171,17 +189,56 @@ export function Purchases() {
     return `«${last.productName}»: آخر سعر ${last.unitCost} ج من ${last.supplier} بتاريخ ${last.date}`;
   }
 
+  function findCatalogProduct(barcode?: string, name?: string): InventoryProduct | undefined {
+    const bc = (barcode || '').trim().toLowerCase();
+    const nm = (name || '').trim().toLowerCase();
+    if (bc) {
+      const byBarcode = catalog.find((p) => (p.barcode || '').trim().toLowerCase() === bc);
+      if (byBarcode) return byBarcode;
+    }
+    if (nm) {
+      return catalog.find((p) => p.name.trim().toLowerCase() === nm);
+    }
+    return undefined;
+  }
+
+  function applyProductToLine(key: string, product: InventoryProduct) {
+    const unitLabel = product.unit === 'PACK' ? 'علبة' : 'قطعة';
+    updateDraft(key, {
+      productId: product.id,
+      productName: product.name,
+      barcode: product.barcode || '',
+      unitLabel,
+      piecesPerPack: String(product.piecesPerPack || 1),
+      // تكلفة الشراء الحالية كاقتراح لسعر الوحدة عند الشراء بالقطعة
+      unitCost: product.currentCost > 0 ? String(product.currentCost) : '',
+      salePrice: product.salePrice > 0 ? String(product.salePrice) : '',
+      stock: product.stock,
+    });
+    setNotice(`تم جلب «${product.name}» — المتبقي: ${product.stock} قطعة | تكلفة: ${product.currentCost} | بيع: ${product.salePrice}`);
+  }
+
   function fillFromBarcode(key: string, barcode: string) {
     const bc = barcode.trim();
     if (!bc) return;
-    // ابحث في فواتير سابقة عن نفس الباركود — عبر اسم الصنف في البنود (لو اتسجّل)
-    for (const inv of invoices) {
-      for (const it of inv.items || []) {
-        // لا يوجد barcode في InvoiceItem type حالياً — نطابق بالاسم لو الباركود كُتب في الاسم لاحقاً
-        void it;
-      }
+    const product = findCatalogProduct(bc);
+    if (product) {
+      applyProductToLine(key, product);
+      return;
     }
-    // من allPricePoints لا نملك barcode؛ نترك المطابقة عند الحفظ في الـ API
+    setNotice(`لا يوجد صنف مسجّل بالباركود «${bc}». يمكنك إدخاله كصنف جديد.`);
+  }
+
+  function fillFromProductName(key: string, name: string) {
+    const product = findCatalogProduct(undefined, name);
+    if (product) applyProductToLine(key, product);
+  }
+
+  function lineProfitPerPiece(l: DraftLine): number | null {
+    const cost = piecePrice(l);
+    const sale = Number(l.salePrice);
+    if (cost === null || !Number.isFinite(sale) || l.salePrice === '') return null;
+    return sale - cost;
   }
 
   function printDraftInvoice() {
@@ -247,6 +304,7 @@ export function Purchases() {
             quantity: Number(l.quantity),
             unitCost: Number(l.unitCost),
             piecesPerPack: unitApi(l.unitLabel) === 'PACK' ? Math.max(1, Math.floor(Number(l.piecesPerPack) || 1)) : 1,
+            salePrice: l.salePrice !== '' && Number.isFinite(Number(l.salePrice)) ? Number(l.salePrice) : undefined,
           })),
         }),
       });
@@ -467,7 +525,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
         <div className="panel-heading">
           <div>
             <h2>فاتورة وارد</h2>
-            <p>سجّل الشركة والتاريخ والأصناف — التكلفة تُحوَّل لسعر القطعة تلقائيًا عند الشراء بالعلبة.</p>
+            <p>امسح الباركود لجلب الصنف والمتبقي وسعر البيع. المكسب = سعر البيع − تكلفة القطعة.</p>
           </div>
         </div>
 
@@ -476,6 +534,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
             <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} list="supplier-list" placeholder="اكتب أو اختر" />
           </label>
           <datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist>
+          <datalist id="product-name-list">{catalog.map((p) => <option key={p.id} value={p.name} />)}</datalist>
           <label>التاريخ
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
@@ -499,8 +558,11 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                 <th>الوحدة</th>
                 <th>الكمية</th>
                 <th>قطع في الوحدة</th>
-                <th>سعر الوحدة</th>
-                <th>سعر القطعة</th>
+                <th>سعر الشراء</th>
+                <th>تكلفة القطعة</th>
+                <th>سعر البيع</th>
+                <th>المكسب/قطعة</th>
+                <th>المتبقي</th>
                 <th>الإجمالي</th>
                 <th></th>
               </tr>
@@ -511,6 +573,7 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                 const c = Number(l.unitCost) || 0;
                 const lineTotal = q * c;
                 const pp = piecePrice(l);
+                const profit = lineProfitPerPiece(l);
                 return (
                   <tr key={l.key}>
                     <td>
@@ -518,13 +581,22 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                         placeholder="باركود"
                         value={l.barcode}
                         onChange={(e) => updateDraft(l.key, { barcode: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            fillFromBarcode(l.key, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        onBlur={(e) => fillFromBarcode(l.key, e.target.value)}
                       />
                     </td>
                     <td>
                       <input
                         placeholder="اسم الصنف"
                         value={l.productName}
+                        list="product-name-list"
                         onChange={(e) => updateDraft(l.key, { productName: e.target.value })}
+                        onBlur={(e) => fillFromProductName(l.key, e.target.value)}
                       />
                     </td>
                     <td>
@@ -574,6 +646,23 @@ h1{color:#0f766e}.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
                       />
                     </td>
                     <td>{pp === null ? '—' : pp.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={l.salePrice}
+                        placeholder="0"
+                        title="سعر بيع القطعة"
+                        onChange={(e) => updateDraft(l.key, { salePrice: e.target.value })}
+                      />
+                    </td>
+                    <td style={{ color: profit === null ? undefined : profit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 600 }}>
+                      {profit === null ? '—' : profit.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}
+                    </td>
+                    <td title="الكمية المتبقية في المخزون قبل هذه الفاتورة">
+                      {l.stock === null || l.stock === undefined ? '—' : l.stock.toLocaleString('ar-EG')}
+                    </td>
                     <td>{lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}</td>
                     <td>
                       <button className="danger-outline-btn" type="button" onClick={() => removeDraftRow(l.key)}>حذف</button>

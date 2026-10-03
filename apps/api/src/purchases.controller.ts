@@ -28,7 +28,7 @@ export class SuppliersController {
 
 type InvoiceInput = {
   supplierId?: string; invoiceNumber?: string; invoiceDate?: string; discount?: number; paidAmount?: number; notes?: string;
-  items?: Array<{ productId?: string; productName?: string; barcode?: string; unit?: string; quantity?: number; unitCost?: number; piecesPerPack?: number }>;
+  items?: Array<{ productId?: string; productName?: string; barcode?: string; unit?: string; quantity?: number; unitCost?: number; piecesPerPack?: number; salePrice?: number }>;
 };
 
 @Controller('purchases/invoices')
@@ -67,9 +67,15 @@ export class PurchaseInvoicesController {
       }
       // unitCost is cost of the purchased unit (pack or piece). Convert to per-piece cost for inventory.
       const costPerPiece = unit === 'PACK' ? unitCost / piecesPerPack : unitCost;
+      let salePrice: number | undefined;
+      if (item.salePrice !== undefined && item.salePrice !== null && item.salePrice !== '') {
+        const sp = Number(item.salePrice);
+        if (!Number.isFinite(sp) || sp < 0) throw new BadRequestException('سعر البيع غير صحيح.');
+        salePrice = sp;
+      }
       return {
         productId: item.productId, productName, barcode: item.barcode, unit, quantity, unitCost,
-        piecesPerPack, lineTotal: quantity * unitCost, costPerPiece,
+        piecesPerPack, lineTotal: quantity * unitCost, costPerPiece, salePrice,
       };
     });
 
@@ -100,6 +106,7 @@ export class PurchaseInvoicesController {
                 unit: item.unit,
                 piecesPerPack: item.piecesPerPack,
                 currentCost: item.costPerPiece,
+                salePrice: item.salePrice ?? 0,
               },
             });
           } else {
@@ -111,6 +118,7 @@ export class PurchaseInvoicesController {
               updateData.unit = 'PACK';
             }
             if (item.barcode?.trim()) updateData.barcode = item.barcode.trim();
+            if (item.salePrice !== undefined) updateData.salePrice = item.salePrice;
             product = await tx.product.update({ where: { id: product.id }, data: updateData });
           }
           createdItems.push({
