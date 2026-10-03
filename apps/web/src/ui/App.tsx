@@ -21,7 +21,7 @@ import { Settings } from './Settings';
 import { Reports } from './Reports';
 
 function isStrongPassword(password: string): boolean {
-  if (!password || password.length < 10) return false;
+  if (!password) return false;
   if (!/[A-Z]/.test(password)) return false;
   if (!/[a-z]/.test(password)) return false;
   if (!/[0-9]/.test(password)) return false;
@@ -102,7 +102,7 @@ export function App() {
       return;
     }
     if (!isStrongPassword(password)) {
-      setMessage('كلمة المرور: 10 أحرف على الأقل وتشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا.');
+      setMessage('كلمة المرور يجب أن تشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا.');
       return;
     }
     setBusy(true);

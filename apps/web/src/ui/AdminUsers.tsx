@@ -13,14 +13,14 @@ type OrgUser = {
 
 
 function isStrongPassword(password: string): boolean {
-  if (!password || password.length < 10) return false;
+  if (!password) return false;
   if (!/[A-Z]/.test(password)) return false;
   if (!/[a-z]/.test(password)) return false;
   if (!/[0-9]/.test(password)) return false;
   if (!/[^A-Za-z0-9]/.test(password)) return false;
   return true;
 }
-const PASSWORD_HINT = '10 أحرف على الأقل + حرف كبير وصغير + رقم + رمز';
+const PASSWORD_HINT = 'حرف كبير + صغير + رقم + رمز';
 
 const PERM_LABELS: Record<string, string> = {
   purchases: 'المشتريات',
@@ -200,7 +200,7 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
           </label>
           <label>
             كلمة المرور
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" minLength={10} placeholder="Aa1@xxxx" title={PASSWORD_HINT} />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" placeholder="Aa1@" title={PASSWORD_HINT} />
             <small style={{ fontWeight: 400, color: "#7a8e93" }}>{PASSWORD_HINT}</small>
           </label>
           <label>
