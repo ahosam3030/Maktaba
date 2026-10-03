@@ -1786,3 +1786,16 @@ html,body,input,button,select,textarea,table{
   .welcome-art{display:none}
   .welcome-banner{min-height:0;padding:22px !important}
 }
+
+/* Product catalog */
+.product-thumb{
+  width:36px;height:36px;
+  border-radius:8px;
+  object-fit:cover;
+  background:#eef5f3;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#0f766e;
+}
+.product-thumb--empty{border:1px dashed #c5d8d4}

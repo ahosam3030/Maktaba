@@ -82,6 +82,10 @@ model Product {
   piecesPerPack  Int                   @default(1)
   currentCost    Decimal               @default(0) @db.Decimal(12, 3)
   salePrice      Decimal               @default(0) @db.Decimal(12, 3)
+  minStock       Decimal               @default(0) @db.Decimal(12, 3)
+  imageUrl       String?
+  notes          String?
+  active         Boolean               @default(true)
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
   organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -93,6 +97,7 @@ model Product {
   @@unique([organizationId, name])
   @@index([organizationId, name])
   @@index([organizationId, barcode])
+  @@index([organizationId, active])
 }
 
 model PurchaseInvoice {
