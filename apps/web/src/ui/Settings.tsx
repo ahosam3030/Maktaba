@@ -203,25 +203,61 @@ export function Settings() {
 
       {tab === 'products' && canProducts && (
         <div className="settings-tab-panel">
-          <section className="purchase-panel units-panel" style={{ marginBottom: 16 }}>
-            <div className="panel-heading">
-              <div>
+          <section className="purchase-panel units-panel">
+            <div className="units-hero">
+              <div className="units-hero-icon" aria-hidden>
+                <IconPackage size={22} />
+              </div>
+              <div className="units-hero-text">
                 <h2>وحدات القياس</h2>
-                <p>تظهر في قائمة الوحدة داخل فاتورة البيع. اكتب الوحدة واضغط إضافة أو Enter.</p>
+                <p>تظهر تلقائيًا في قائمة «الوحدة» بفاتورة البيع. أضف أو احذف في ثوانٍ.</p>
+              </div>
+              <div className="units-hero-badge">
+                {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length}
+                <span>وحدة</span>
               </div>
             </div>
 
-            <div className="units-add-row">
-              <input
-                className="units-add-input"
-                value={newUnit}
-                onChange={(e) => setNewUnit(e.target.value)}
-                placeholder="اكتب وحدة جديدة… مثل: كورة، متر، ملف"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
+            <div className="units-add-card">
+              <label className="units-add-label" htmlFor="new-unit-input">
+                وحدة جديدة
+              </label>
+              <div className="units-add-row">
+                <input
+                  id="new-unit-input"
+                  className="units-add-input"
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="مثال: كورة · متر · ملف · كيلو"
+                  maxLength={40}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const n = newUnit.trim();
+                      if (!n) return;
+                      const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
+                      if (list.includes(n)) {
+                        setNotice(`«${n}» موجودة بالفعل.`);
+                        setNewUnit('');
+                        return;
+                      }
+                      const next = [...list, n];
+                      setUnitsText(next.join('\n'));
+                      saveSaleUnits(next);
+                      setNewUnit('');
+                      setNotice(`تمت إضافة «${n}».`);
+                    }
+                  }}
+                />
+                <button
+                  className="primary-btn units-add-btn"
+                  type="button"
+                  onClick={() => {
                     const n = newUnit.trim();
-                    if (!n) return;
+                    if (!n) {
+                      setNotice('اكتب اسم الوحدة أولًا.');
+                      return;
+                    }
                     const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
                     if (list.includes(n)) {
                       setNotice(`«${n}» موجودة بالفعل.`);
@@ -233,70 +269,18 @@ export function Settings() {
                     saveSaleUnits(next);
                     setNewUnit('');
                     setNotice(`تمت إضافة «${n}».`);
-                  }
-                }}
-              />
-              <button
-                className="primary-btn units-add-btn"
-                type="button"
-                onClick={() => {
-                  const n = newUnit.trim();
-                  if (!n) {
-                    setNotice('اكتب اسم الوحدة أولًا.');
-                    return;
-                  }
-                  const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
-                  if (list.includes(n)) {
-                    setNotice(`«${n}» موجودة بالفعل.`);
-                    setNewUnit('');
-                    return;
-                  }
-                  const next = [...list, n];
-                  setUnitsText(next.join('\n'));
-                  saveSaleUnits(next);
-                  setNewUnit('');
-                  setNotice(`تمت إضافة «${n}».`);
-                }}
-              >
-                إضافة
-              </button>
+                  }}
+                >
+                  + إضافة
+                </button>
+              </div>
+              <p className="units-hint">اضغط Enter للإضافة السريعة · الحفظ فوري على هذا الجهاز</p>
             </div>
 
-            <div className="units-chips" role="list">
-              {unitsText
-                .split(/\n/)
-                .map((x) => x.trim())
-                .filter(Boolean)
-                .map((u) => (
-                  <span key={u} className="unit-chip" role="listitem">
-                    {u}
-                    <button
-                      type="button"
-                      className="unit-chip-remove"
-                      title={`حذف ${u}`}
-                      aria-label={`حذف ${u}`}
-                      onClick={() => {
-                        const next = unitsText
-                          .split(/\n/)
-                          .map((x) => x.trim())
-                          .filter((x) => x && x !== u);
-                        setUnitsText(next.join('\n'));
-                        saveSaleUnits(next);
-                        setNotice(`تم حذف «${u}».`);
-                      }}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-            </div>
-
-            <div className="units-panel-footer">
-              <span className="units-count">
-                {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length} وحدة
-              </span>
+            <div className="units-list-head">
+              <strong>الوحدات الحالية</strong>
               <button
-                className="secondary-btn small"
+                className="ghost-btn"
                 type="button"
                 onClick={() => {
                   if (!confirm('استعادة الوحدات الافتراضية؟')) return;
@@ -307,6 +291,40 @@ export function Settings() {
               >
                 استعادة الافتراضي
               </button>
+            </div>
+
+            <div className="units-chips" role="list">
+              {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length === 0 ? (
+                <div className="units-empty">لا وحدات بعد — أضف أول وحدة من الحقل أعلاه.</div>
+              ) : (
+                unitsText
+                  .split(/\n/)
+                  .map((x) => x.trim())
+                  .filter(Boolean)
+                  .map((u) => (
+                    <span key={u} className="unit-chip" role="listitem">
+                      <span className="unit-chip-dot" aria-hidden />
+                      <span className="unit-chip-label">{u}</span>
+                      <button
+                        type="button"
+                        className="unit-chip-remove"
+                        title={`حذف ${u}`}
+                        aria-label={`حذف ${u}`}
+                        onClick={() => {
+                          const next = unitsText
+                            .split(/\n/)
+                            .map((x) => x.trim())
+                            .filter((x) => x && x !== u);
+                          setUnitsText(next.join('\n'));
+                          saveSaleUnits(next);
+                          setNotice(`تم حذف «${u}».`);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+              )}
             </div>
           </section>
           <Inventory embedded />
