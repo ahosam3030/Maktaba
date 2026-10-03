@@ -12,6 +12,8 @@ model Organization {
   name             String
   slug             String             @unique
   phone            String?
+  /// JSON: إعدادات الطباعة والإيصالات للمكتبة
+  printSettings    String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   branches         Branch[]

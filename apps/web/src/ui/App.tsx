@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { startSyncWatchers, processSyncQueue, subscribeSyncQueue, countPending } from '../data/sync';
+import { fetchInvoiceSettings } from '../data/invoiceSettings';
 import { db, type LocalOrganization } from '../data/db';
 import {
   apiHealth,
@@ -128,6 +129,7 @@ export function App() {
         password,
       });
       saveSession(result);
+      void fetchInvoiceSettings();
       setSessionUser(result.user);
       setSessionOrg(result.organization);
       await db.organizations.put({
@@ -160,6 +162,7 @@ export function App() {
     try {
       const result = await login(loginEmail.trim(), loginPassword);
       saveSession(result);
+      void fetchInvoiceSettings();
       setSessionUser(result.user);
       setSessionOrg(result.organization);
       await db.organizations.put({

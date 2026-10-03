@@ -1,4 +1,6 @@
-/** إعدادات طباعة فاتورة المبيعات — تُحفظ محليًا على الجهاز */
+/** إعدادات طباعة الفواتير — المصدر الأساسي: الخادم، مع كاش محلي للطابعة/الأوفلاين */
+
+import { apiRequest, getToken } from './api';
 
 export type InvoiceSettings = {
   brandTitle: string;
@@ -24,45 +26,97 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   footerText: 'شكرًا لثقتكم بنا',
 };
 
+function normalize(parsed: Partial<InvoiceSettings> | null | undefined): InvoiceSettings {
+  const tags = Array.isArray(parsed?.serviceTags)
+    ? parsed!.serviceTags!.map(String).map((t) => t.trim()).filter(Boolean)
+    : [...DEFAULT_INVOICE_SETTINGS.serviceTags];
+  return {
+    brandTitle:
+      String(parsed?.brandTitle ?? DEFAULT_INVOICE_SETTINGS.brandTitle).trim() ||
+      DEFAULT_INVOICE_SETTINGS.brandTitle,
+    brandSubtitle:
+      String(parsed?.brandSubtitle ?? DEFAULT_INVOICE_SETTINGS.brandSubtitle).trim() ||
+      DEFAULT_INVOICE_SETTINGS.brandSubtitle,
+    phone: String(parsed?.phone ?? DEFAULT_INVOICE_SETTINGS.phone).trim() || DEFAULT_INVOICE_SETTINGS.phone,
+    address:
+      String(parsed?.address ?? DEFAULT_INVOICE_SETTINGS.address).trim() || DEFAULT_INVOICE_SETTINGS.address,
+    watermarkText:
+      String(parsed?.watermarkText ?? DEFAULT_INVOICE_SETTINGS.watermarkText).trim() ||
+      DEFAULT_INVOICE_SETTINGS.watermarkText,
+    serviceTags: tags.length ? tags : [...DEFAULT_INVOICE_SETTINGS.serviceTags],
+    invoiceTitle:
+      String(parsed?.invoiceTitle ?? DEFAULT_INVOICE_SETTINGS.invoiceTitle).trim() ||
+      DEFAULT_INVOICE_SETTINGS.invoiceTitle,
+    footerText:
+      String(parsed?.footerText ?? DEFAULT_INVOICE_SETTINGS.footerText).trim() ||
+      DEFAULT_INVOICE_SETTINGS.footerText,
+  };
+}
+
+function writeLocalCache(settings: InvoiceSettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+/** قراءة متزامنة من الكاش المحلي (للطباعة الفورية) */
 export function loadInvoiceSettings(): InvoiceSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_INVOICE_SETTINGS, serviceTags: [...DEFAULT_INVOICE_SETTINGS.serviceTags] };
-    const parsed = JSON.parse(raw) as Partial<InvoiceSettings>;
-    const tags = Array.isArray(parsed.serviceTags)
-      ? parsed.serviceTags.map(String).map((t) => t.trim()).filter(Boolean)
-      : [...DEFAULT_INVOICE_SETTINGS.serviceTags];
-    return {
-      brandTitle: String(parsed.brandTitle ?? DEFAULT_INVOICE_SETTINGS.brandTitle).trim() || DEFAULT_INVOICE_SETTINGS.brandTitle,
-      brandSubtitle: String(parsed.brandSubtitle ?? DEFAULT_INVOICE_SETTINGS.brandSubtitle).trim() || DEFAULT_INVOICE_SETTINGS.brandSubtitle,
-      phone: String(parsed.phone ?? DEFAULT_INVOICE_SETTINGS.phone).trim() || DEFAULT_INVOICE_SETTINGS.phone,
-      address: String(parsed.address ?? DEFAULT_INVOICE_SETTINGS.address).trim() || DEFAULT_INVOICE_SETTINGS.address,
-      watermarkText: String(parsed.watermarkText ?? DEFAULT_INVOICE_SETTINGS.watermarkText).trim() || DEFAULT_INVOICE_SETTINGS.watermarkText,
-      serviceTags: tags.length ? tags : [...DEFAULT_INVOICE_SETTINGS.serviceTags],
-      invoiceTitle: String(parsed.invoiceTitle ?? DEFAULT_INVOICE_SETTINGS.invoiceTitle).trim() || DEFAULT_INVOICE_SETTINGS.invoiceTitle,
-      footerText: String(parsed.footerText ?? DEFAULT_INVOICE_SETTINGS.footerText).trim() || DEFAULT_INVOICE_SETTINGS.footerText,
-    };
+    return normalize(JSON.parse(raw) as Partial<InvoiceSettings>);
   } catch {
     return { ...DEFAULT_INVOICE_SETTINGS, serviceTags: [...DEFAULT_INVOICE_SETTINGS.serviceTags] };
   }
 }
 
-export function saveInvoiceSettings(settings: InvoiceSettings): void {
-  const clean: InvoiceSettings = {
-    brandTitle: settings.brandTitle.trim() || DEFAULT_INVOICE_SETTINGS.brandTitle,
-    brandSubtitle: settings.brandSubtitle.trim() || DEFAULT_INVOICE_SETTINGS.brandSubtitle,
-    phone: settings.phone.trim() || DEFAULT_INVOICE_SETTINGS.phone,
-    address: settings.address.trim() || DEFAULT_INVOICE_SETTINGS.address,
-    watermarkText: settings.watermarkText.trim() || DEFAULT_INVOICE_SETTINGS.watermarkText,
-    serviceTags: settings.serviceTags.map((t) => t.trim()).filter(Boolean),
-    invoiceTitle: settings.invoiceTitle.trim() || DEFAULT_INVOICE_SETTINGS.invoiceTitle,
-    footerText: settings.footerText.trim() || DEFAULT_INVOICE_SETTINGS.footerText,
-  };
-  if (!clean.serviceTags.length) clean.serviceTags = [...DEFAULT_INVOICE_SETTINGS.serviceTags];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+/** جلب من الخادم وتحديث الكاش — يُستدعى عند فتح الإعدادات وبعد تسجيل الدخول */
+export async function fetchInvoiceSettings(): Promise<InvoiceSettings> {
+  if (!getToken()) {
+    return loadInvoiceSettings();
+  }
+  try {
+    const remote = await apiRequest<InvoiceSettings>('/settings/print');
+    const clean = normalize(remote);
+    writeLocalCache(clean);
+    return clean;
+  } catch {
+    return loadInvoiceSettings();
+  }
 }
 
-export function resetInvoiceSettings(): InvoiceSettings {
-  localStorage.removeItem(STORAGE_KEY);
-  return { ...DEFAULT_INVOICE_SETTINGS, serviceTags: [...DEFAULT_INVOICE_SETTINGS.serviceTags] };
+/** حفظ على الخادم + الكاش المحلي */
+export async function saveInvoiceSettings(settings: InvoiceSettings): Promise<InvoiceSettings> {
+  const clean = normalize(settings);
+  if (!getToken()) {
+    writeLocalCache(clean);
+    return clean;
+  }
+  const remote = await apiRequest<InvoiceSettings>(
+    '/settings/print',
+    { method: 'PUT', body: JSON.stringify(clean) },
+    { queueLabel: 'حفظ إعدادات الطباعة' },
+  );
+  const saved = normalize(remote);
+  writeLocalCache(saved);
+  return saved;
+}
+
+/** استعادة الافتراضي على الخادم */
+export async function resetInvoiceSettings(): Promise<InvoiceSettings> {
+  if (!getToken()) {
+    const defaults = { ...DEFAULT_INVOICE_SETTINGS, serviceTags: [...DEFAULT_INVOICE_SETTINGS.serviceTags] };
+    writeLocalCache(defaults);
+    return defaults;
+  }
+  const remote = await apiRequest<InvoiceSettings>(
+    '/settings/print/reset',
+    { method: 'PUT', body: '{}' },
+    { queueLabel: 'استعادة إعدادات الطباعة' },
+  );
+  const clean = normalize(remote);
+  writeLocalCache(clean);
+  return clean;
 }

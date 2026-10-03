@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  fetchInvoiceSettings,
   loadInvoiceSettings,
   resetInvoiceSettings,
   saveInvoiceSettings,
@@ -42,30 +43,50 @@ export function Settings() {
 
   useEffect(() => {
     void refreshLocal();
+    void fetchInvoiceSettings().then((s) => {
+      setForm(s);
+      setTagsText(s.serviceTags.join('\n'));
+    });
   }, [refreshLocal]);
 
   function update<K extends keyof InvoiceSettings>(key: K, value: InvoiceSettings[K]) {
     setForm((old) => ({ ...old, [key]: value }));
   }
 
-  function handleSaveInvoice() {
+  async function handleSaveInvoice() {
     const tags = tagsText
       .split(/\n|,/)
       .map((t) => t.trim())
       .filter(Boolean);
     const next: InvoiceSettings = { ...form, serviceTags: tags };
-    saveInvoiceSettings(next);
-    setForm(loadInvoiceSettings());
-    setTagsText(loadInvoiceSettings().serviceTags.join('\n'));
-    setNotice('تم حفظ بيانات الطباعة والإيصالات على هذا الجهاز.');
+    setBusy(true);
+    setNotice('');
+    try {
+      const saved = await saveInvoiceSettings(next);
+      setForm(saved);
+      setTagsText(saved.serviceTags.join('\n'));
+      setNotice('تم حفظ بيانات الطباعة والإيصالات على الخادم (ومزامنتها لهذا الجهاز).');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر حفظ الإعدادات على الخادم.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function handleResetInvoice() {
-    if (!confirm('استعادة القيم الافتراضية لبيانات الطباعة على هذا الجهاز؟')) return;
-    const defaults = resetInvoiceSettings();
-    setForm(defaults);
-    setTagsText(defaults.serviceTags.join('\n'));
-    setNotice('تمت استعادة القيم الافتراضية.');
+  async function handleResetInvoice() {
+    if (!confirm('استعادة القيم الافتراضية لبيانات الطباعة على الخادم؟')) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const defaults = await resetInvoiceSettings();
+      setForm(defaults);
+      setTagsText(defaults.serviceTags.join('\n'));
+      setNotice('تمت استعادة القيم الافتراضية على الخادم.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر الاستعادة.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function removeLocalOrg(org: LocalOrganization) {
