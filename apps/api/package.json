@@ -10,7 +10,10 @@
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "test": "node --test src/stock.util.test.js",
+    "test:stock": "node --import tsx --test src/stock.util.test.ts",
+    "test:unit": "node --test src/stock.util.test.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

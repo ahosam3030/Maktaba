@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
+import { computeStockPieces, assertSufficientStock, roundStock } from './stock.util';
 
 type SaleDraft = {
   productId?: string;
@@ -79,16 +80,21 @@ export class SalesController {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      return await this.prisma.$transaction(
+        async (tx) => {
         const products = new Map<string, { id: string; name: string; currentCost: Prisma.Decimal }>();
+        // قفل صفوف المنتجات ثم إعادة فحص الرصيد داخل نفس المعاملة
         for (const [productId, requested] of grouped) {
+          await this.lockProductRow(tx, user.organizationId, productId);
           const product = await tx.product.findFirst({
             where: { id: productId, organizationId: user.organizationId },
           });
           if (!product) throw new BadRequestException('أحد الأصناف غير موجود في مكتبتك.');
           const stock = await this.currentStockTx(tx, user.organizationId, productId);
-          if (requested > stock) {
-            throw new BadRequestException(`الرصيد غير كافٍ للصنف ${product.name}. المتاح: ${stock}`);
+          try {
+            assertSufficientStock(stock, requested, product.name);
+          } catch (e) {
+            throw new BadRequestException(e instanceof Error ? e.message : 'رصيد غير كافٍ.');
           }
           products.set(productId, {
             id: product.id,
@@ -191,11 +197,21 @@ export class SalesController {
           });
         }
         return sale;
-      });
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5_000,
+        timeout: 15_000,
+      },
+    );
     } catch (error: unknown) {
       if (error instanceof BadRequestException) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new BadRequestException('رقم فاتورة البيع مستخدم من قبل.');
+      }
+      // تعارض عزل Serializable
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new BadRequestException('تعارض في المخزون بسبب عملية متزامنة — أعد المحاولة.');
       }
       throw error;
     }
@@ -209,8 +225,13 @@ export class SalesController {
     });
     if (!sale) throw new NotFoundException('فاتورة البيع غير موجودة.');
 
-    return this.prisma.$transaction(async (tx) => {
-      // إرجاع كميات المخزون للبنود المرتبطة ببضاعة
+    return this.prisma.$transaction(
+      async (tx) => {
+      // قفل الأصناف ثم إرجاع الرصيد
+      const productIds = [...new Set(sale.items.map((i) => i.productId).filter(Boolean))] as string[];
+      for (const productId of productIds) {
+        await this.lockProductRow(tx, user.organizationId, productId);
+      }
       for (const item of sale.items) {
         if (!item.productId) continue;
         await tx.stockMovement.create({
@@ -230,7 +251,25 @@ export class SalesController {
       await tx.saleItem.deleteMany({ where: { saleId: sale.id } });
       await tx.sale.delete({ where: { id: sale.id } });
       return { ok: true, invoiceNumber: sale.invoiceNumber };
-    });
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 15_000,
+    },
+    );
+  }
+
+  private async lockProductRow(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    productId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`
+      SELECT id FROM "Product"
+      WHERE id = ${productId} AND "organizationId" = ${organizationId}
+      FOR UPDATE
+    `;
   }
 
   private async currentStockTx(
@@ -250,11 +289,21 @@ export class SalesController {
       },
     });
     if (!product) return 0;
-    const purchased = product.purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-    const returned = product.returnItems.reduce(
-      (sum, item) => sum + Number(item.invoiceItem.quantity) * (Number(item.quantity) / Math.max(1, Number(item.invoiceItem.quantity))),
-      0,
-    );
-    return purchased - returned + product.stockMovements.reduce((sum, item) => sum + Number(item.quantity), 0);
+    return computeStockPieces({
+      purchases: product.purchaseItems.map((item) => ({
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        piecesPerPack: item.piecesPerPack,
+      })),
+      returns: product.returnItems.map((item) => ({
+        quantity: Number(item.quantity),
+        unit: item.invoiceItem.unit,
+        piecesPerPack: item.invoiceItem.piecesPerPack,
+      })),
+      movements: product.stockMovements.map((m) => ({
+        quantity: Number(m.quantity),
+        type: m.type,
+      })),
+    });
   }
 }

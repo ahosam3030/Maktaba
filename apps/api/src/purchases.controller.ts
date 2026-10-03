@@ -242,13 +242,28 @@ export class PurchaseReturnsController {
     const returnDate = body.returnDate ? new Date(body.returnDate) : new Date();
     if (Number.isNaN(returnDate.getTime())) throw new BadRequestException('تاريخ المرتجع غير صحيح.');
 
-    return this.prisma.$transaction(async (tx) => {
-      // Re-read invoice inside transaction to reduce race on concurrent returns
+    return this.prisma.$transaction(
+      async (tx) => {
+      // قفل بنود الفاتورة ثم الأصناف لمنع مرتجعين متزامنين
+      await tx.$queryRaw`
+        SELECT id FROM "PurchaseInvoiceItem"
+        WHERE "invoiceId" = ${body.invoiceId}
+        FOR UPDATE
+      `;
       const invoice = await tx.purchaseInvoice.findFirst({
         where: { id: body.invoiceId, organizationId: user.organizationId },
         include: { items: true },
       });
       if (!invoice) throw new BadRequestException('فاتورة الوارد غير موجودة في مكتبتك.');
+
+      const productIds = [...new Set(invoice.items.map((i) => i.productId))];
+      for (const pid of productIds) {
+        await tx.$queryRaw`
+          SELECT id FROM "Product"
+          WHERE id = ${pid} AND "organizationId" = ${user.organizationId}
+          FOR UPDATE
+        `;
+      }
 
       const lines = body.items!.map((draft) => {
         const item = invoice.items.find((candidate) => candidate.id === draft.invoiceItemId);
@@ -308,6 +323,12 @@ export class PurchaseReturnsController {
       }
 
       return purchaseReturn;
-    });
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 15_000,
+    },
+    );
   }
 }

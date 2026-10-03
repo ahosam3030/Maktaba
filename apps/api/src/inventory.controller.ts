@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
+import { computeStockPieces } from './stock.util';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
 
 type ProductBody = {
@@ -211,7 +212,13 @@ export class InventoryController {
     if (!productId || !Number.isFinite(quantity) || quantity === 0 || !reason) {
       throw new BadRequestException('اختر الصنف وأدخل كمية تعديل غير صفرية وسبب التعديل.');
     }
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(
+      async (tx) => {
+      await tx.$queryRaw`
+        SELECT id FROM "Product"
+        WHERE id = ${productId} AND "organizationId" = ${user.organizationId}
+        FOR UPDATE
+      `;
       const product = await tx.product.findFirst({
         where: { id: productId, organizationId: user.organizationId },
       });
@@ -229,7 +236,13 @@ export class InventoryController {
         },
         include: { product: { select: { id: true, name: true, barcode: true } } },
       });
-    });
+    },
+    {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 15_000,
+    },
+    );
   }
 
   @Post('repair-purchase-delete-adjustments')
@@ -314,15 +327,21 @@ export class InventoryController {
       },
     });
     if (!product) return 0;
-    const purchased = product.purchaseItems.reduce(
-      (sum, item) => sum + Number(item.quantity) * (item.unit === 'PACK' ? item.piecesPerPack : 1),
-      0,
-    );
-    const returned = product.returnItems.reduce(
-      (sum, item) =>
-        sum + Number(item.quantity) * (item.invoiceItem.unit === 'PACK' ? item.invoiceItem.piecesPerPack : 1),
-      0,
-    );
-    return purchased - returned + product.stockMovements.reduce((sum, item) => sum + Number(item.quantity), 0);
+    return computeStockPieces({
+      purchases: product.purchaseItems.map((item) => ({
+        quantity: Number(item.quantity),
+        unit: item.unit,
+        piecesPerPack: item.piecesPerPack,
+      })),
+      returns: product.returnItems.map((item) => ({
+        quantity: Number(item.quantity),
+        unit: item.invoiceItem.unit,
+        piecesPerPack: item.invoiceItem.piecesPerPack,
+      })),
+      movements: product.stockMovements.map((m) => ({
+        quantity: Number(m.quantity),
+        type: m.type,
+      })),
+    });
   }
 }
