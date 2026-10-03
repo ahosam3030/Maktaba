@@ -1,5 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest } from '../data/api';
+import { apiRequest, getToken } from '../data/api';
+
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+
+function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`;
+}
+
+async function uploadProductImage(file: File): Promise<string> {
+  const token = getToken();
+  const fd = new FormData();
+  fd.append('file', file);
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+  const res = await fetch(`${base}/inventory/upload-image`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data as { message?: string }).message || 'تعذر رفع الصورة.');
+  return (data as { imageUrl: string }).imageUrl;
+}
+
 import { IconBoxes, IconRefresh, IconPackage, IconSearch, IconPlus, IconTrash } from './Icons';
 
 type InventoryItem = {
@@ -370,9 +394,77 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
                 الحد الأدنى للمخزون
                 <input type="number" min={0} step="1" value={form.minStock} onChange={(e) => setField('minStock', e.target.value)} />
               </label>
-              <label className="pur-field">
-                رابط صورة (اختياري)
-                <input value={form.imageUrl} onChange={(e) => setField('imageUrl', e.target.value)} dir="ltr" placeholder="https://..." />
+              <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
+                صورة المنتج
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 6 }}>
+                  {form.imageUrl ? (
+                    <img
+                      src={resolveMediaUrl(form.imageUrl) || ''}
+                      alt=""
+                      className="product-thumb"
+                      style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, border: '1px solid #d5e0e3' }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 10,
+                        background: '#eef3f5',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: '#7a8e93',
+                        fontSize: 12,
+                      }}
+                    >
+                      بلا صورة
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 200 }}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      disabled={busy}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        if (file.size > 2 * 1024 * 1024) {
+                          setNotice('الحد الأقصى للصورة 2 ميجابايت.');
+                          return;
+                        }
+                        setBusy(true);
+                        setNotice('');
+                        try {
+                          const url = await uploadProductImage(file);
+                          setField('imageUrl', url);
+                          setNotice('تم رفع الصورة — احفظ المنتج لتثبيت الرابط.');
+                        } catch (err) {
+                          setNotice(err instanceof Error ? err.message : 'تعذر رفع الصورة.');
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    />
+                    <input
+                      value={form.imageUrl}
+                      onChange={(e) => setField('imageUrl', e.target.value)}
+                      dir="ltr"
+                      placeholder="أو الصق رابط صورة خارجي https://..."
+                    />
+                    {form.imageUrl && (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        style={{ alignSelf: 'flex-start', padding: '0.3rem 0.7rem', fontSize: 13 }}
+                        onClick={() => setField('imageUrl', '')}
+                      >
+                        إزالة الصورة
+                      </button>
+                    )}
+                  </div>
+                </div>
               </label>
               <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
                 ملاحظات
@@ -440,7 +532,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
                       <tr key={item.id} style={{ opacity: item.active === false ? 0.55 : 1 }}>
                         <td>
                           {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" className="product-thumb" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <img src={resolveMediaUrl(item.imageUrl) || ""} alt="" className="product-thumb" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <span className="product-thumb product-thumb--empty"><IconPackage size={16} /></span>
                           )}

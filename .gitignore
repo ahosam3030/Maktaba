@@ -6,3 +6,5 @@ coverage/
 *.log
 .DS_Store
 backups/
+uploads/
+apps/api/uploads/

@@ -100,7 +100,7 @@
    - `backup.bat` / `scripts/backup-db.sh` عبر `pg_dump`
    - رؤوس أمان + **HTTPS عبر reverse proxy** (Caddy/Nginx) — التطبيق نفسه لا يصدر شهادة.
 4. ~~تخزين إعدادات الطباعة على الخادم~~ → **منفّذ:** `GET/PUT /api/settings/print` على مستوى المكتبة + كاش محلي للطباعة الأوفلاين.
-5. رفع صور المنتجات (حاليًا رابط URL اختياري).
+5. ~~رفع صور المنتجات~~ → **منفّذ:** `POST /api/inventory/upload-image` (JPEG/PNG/WebP/GIF ≤ 2MB) مع خدمة `/uploads` + واجهة اختيار ملف.
 
 ---
 

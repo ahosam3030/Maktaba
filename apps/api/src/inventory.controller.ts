@@ -7,12 +7,20 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { computeStockPieces } from './stock.util';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
+import { imageFileFilter, orgUploadDir, safeImageExt } from './uploads';
 
 type ProductBody = {
   name?: string;
@@ -48,6 +56,33 @@ export class InventoryController {
       },
     });
     return products.map((product) => this.mapProduct(product));
+  }
+
+  /** رفع صورة منتج — يُرجع مسارًا نسبيًا يُحفظ في imageUrl */
+  @Post('upload-image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: imageFileFilter,
+    }),
+  )
+  uploadImage(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('اختر ملف صورة للرفع.');
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new BadRequestException('الحد الأقصى لحجم الصورة 2 ميجابايت.');
+    }
+    const ext = safeImageExt(file.mimetype);
+    const name = `${randomUUID()}${ext}`;
+    const dir = orgUploadDir(user.organizationId);
+    writeFileSync(join(dir, name), file.buffer);
+    const imageUrl = `/uploads/${user.organizationId}/${name}`;
+    return { imageUrl, size: file.size };
   }
 
   @Post('products')
