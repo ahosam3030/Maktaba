@@ -319,8 +319,24 @@ model ServiceReceipt {
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user              User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   service           Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  items             ServiceReceiptItem[]
 
   @@unique([organizationId, receiptNo])
   @@index([organizationId, receiptDate])
   @@index([organizationId, serviceId])
+}
+
+
+model ServiceReceiptItem {
+  id          String         @id @default(cuid())
+  receiptId   String
+  serviceId   String?
+  serviceName String
+  description String?
+  quantity    Decimal        @default(1) @db.Decimal(12, 3)
+  unitPrice   Decimal        @default(0) @db.Decimal(12, 3)
+  lineTotal   Decimal        @default(0) @db.Decimal(12, 3)
+  receipt     ServiceReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
 }

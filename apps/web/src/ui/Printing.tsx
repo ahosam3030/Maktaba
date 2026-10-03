@@ -14,6 +14,16 @@ type Service = {
   notes?: string | null;
 };
 
+type ReceiptItem = {
+  id?: string;
+  serviceId?: string | null;
+  serviceName: string;
+  description?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
 type Receipt = {
   id: string;
   receiptNo: string;
@@ -35,6 +45,16 @@ type Receipt = {
   paid: number;
   notes?: string | null;
   cashTransactionId?: string | null;
+  items?: ReceiptItem[];
+};
+
+type DraftLine = {
+  key: string;
+  serviceId: string;
+  serviceName: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
 };
 
 const money = (n: number) =>
@@ -54,7 +74,6 @@ export function Printing() {
   const [jobs, setJobs] = useState<Receipt[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [tab, setTab] = useState<'new' | 'history' | 'services'>('new');
-  const [showPrintDetails, setShowPrintDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -62,13 +81,7 @@ export function Printing() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerName, setCustomerName] = useState('');
   const [serviceId, setServiceId] = useState('');
-  const [description, setDescription] = useState('');
-  const [paperSize, setPaperSize] = useState('A4');
-  const [colorMode, setColorMode] = useState<'bw' | 'color'>('bw');
-  const [pages, setPages] = useState('1');
-  const [copies, setCopies] = useState('1');
-  const [sides, setSides] = useState<'single' | 'double'>('single');
-  const [unitPrice, setUnitPrice] = useState('');
+  const [lines, setLines] = useState<DraftLine[]>([]);
   const [extraFees, setExtraFees] = useState('0');
   const [discount, setDiscount] = useState('0');
   const [paid, setPaid] = useState('');
@@ -92,15 +105,23 @@ export function Printing() {
       ]);
       setServices(svc);
       setJobs(receipts);
-      setServiceId((cur) => {
-        if (cur && svc.some((s) => s.id === cur)) return cur;
-        const first = svc.find((s) => s.active) || svc[0];
-        if (first) {
-          setUnitPrice(String(first.unitPrice));
-          return first.id;
-        }
-        return '';
-      });
+      const first = svc.find((s) => s.active) || svc[0];
+      if (first) {
+        setServiceId((cur) => (cur && svc.some((s) => s.id === cur) ? cur : first.id));
+        setLines((prev) => {
+          if (prev.length > 0) return prev;
+          return [
+            {
+              key: crypto.randomUUID(),
+              serviceId: first.id,
+              serviceName: first.name,
+              description: '',
+              quantity: '1',
+              unitPrice: String(first.unitPrice),
+            },
+          ];
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذر تحميل الخدمات والإيصالات من الخادم.');
     } finally {
@@ -113,29 +134,49 @@ export function Printing() {
   }, [loadAll]);
 
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
-  const selected = services.find((s) => s.id === serviceId) || activeServices[0];
 
-  useEffect(() => {
-    if (selected) {
-      setUnitPrice(String(selected.unitPrice));
-      if (selected.chargeUnit === 'page') setShowPrintDetails(true);
-    }
-  }, [selected?.id]);
-
-  const pagesN = Math.max(1, Number(pages) || 1);
-  const copiesN = Math.max(1, Number(copies) || 1);
-  const priceN = Math.max(0, Number(unitPrice) || 0);
-  const chargeUnit = selected?.chargeUnit || 'job';
-  const lineTotal =
-    chargeUnit === 'job'
-      ? priceN
-      : chargeUnit === 'copy'
-        ? priceN * copiesN
-        : priceN * pagesN * copiesN;
+  const computedLines = lines.map((l) => {
+    const quantity = Math.max(0, Number(l.quantity) || 0);
+    const unitPrice = Math.max(0, Number(l.unitPrice) || 0);
+    return { ...l, quantity, unitPrice, lineTotal: quantity * unitPrice };
+  });
+  const subtotal = computedLines.reduce((s, l) => s + l.lineTotal, 0);
   const extras = Math.max(0, Number(extraFees) || 0);
   const discountN = Math.max(0, Number(discount) || 0);
-  const total = Math.max(0, lineTotal + extras - discountN);
+  const total = Math.max(0, subtotal + extras - discountN);
   const paidN = paid.trim() === '' ? total : Math.max(0, Number(paid) || 0);
+
+  function addLine() {
+    const first = activeServices[0];
+    setLines((prev) => [
+      ...prev,
+      {
+        key: crypto.randomUUID(),
+        serviceId: first?.id || '',
+        serviceName: first?.name || '',
+        description: '',
+        quantity: '1',
+        unitPrice: String(first?.unitPrice ?? 0),
+      },
+    ]);
+  }
+
+  function updateLine(key: string, patch: Partial<DraftLine>) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  function setLineService(key: string, id: string) {
+    const s = services.find((x) => x.id === id);
+    updateLine(key, {
+      serviceId: id,
+      serviceName: s?.name || '',
+      unitPrice: String(s?.unitPrice ?? 0),
+    });
+  }
+
+  function removeLine(key: string) {
+    setLines((prev) => (prev.length <= 1 ? prev : prev.filter((l) => l.key !== key)));
+  }
 
   const filtered = jobs.filter((j) =>
     `${j.receiptNo} ${j.customerName || ''} ${j.description || ''} ${j.serviceName || ''}`
@@ -155,31 +196,37 @@ export function Printing() {
       setNotice('اسمح بالنوافذ المنبثقة لإتمام الطباعة.');
       return;
     }
-    const serviceTitle = job.serviceName || 'خدمة';
-    const hasPrintMeta =
-      job.pages > 1 ||
-      job.copies > 1 ||
-      (job.paperSize && job.paperSize !== '—') ||
-      Boolean(job.colorMode && job.colorMode !== '—');
-    const printRows = hasPrintMeta
-      ? `<tr><td>المقاس / اللون</td><td>${escapeHtml(job.paperSize || '—')} / ${
-          job.colorMode === 'color' ? 'ألوان' : job.colorMode === 'bw' ? 'أبيض وأسود' : escapeHtml(String(job.colorMode || '—'))
-        }</td></tr>
-<tr><td>الصفحات × النسخ</td><td>${job.pages} × ${job.copies}</td></tr>`
-      : '';
-    w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>إيصال ${escapeHtml(job.receiptNo)}</title>
-<style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111}h1{text-align:center;font-size:22px}p{margin:7px 0}.line{border-top:1px dashed #888;margin:14px 0}table{width:100%;border-collapse:collapse}td{padding:8px;border-bottom:1px solid #ddd}.total{font-size:19px;font-weight:bold}</style>
+    const items =
+      job.items && job.items.length > 0
+        ? job.items
+        : [
+            {
+              serviceName: job.serviceName || 'خدمة',
+              description: job.description,
+              quantity: 1,
+              unitPrice: Number(job.unitPrice),
+              lineTotal: Number(job.total) - Number(job.extraFees) + Number(job.discount),
+            },
+          ];
+    const itemRows = items
+      .map(
+        (it) =>
+          `<tr><td>${escapeHtml(it.serviceName)}</td><td>${escapeHtml(it.description || '—')}</td><td>${Number(it.quantity)}</td><td>${Number(it.unitPrice).toFixed(2)}</td><td>${Number(it.lineTotal).toFixed(2)}</td></tr>`,
+      )
+      .join('');
+    w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>فاتورة ${escapeHtml(job.receiptNo)}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#111}h1{text-align:center;font-size:22px}p{margin:7px 0}.line{border-top:1px dashed #888;margin:14px 0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:center;font-size:13px}th{background:#f3f6f6}.total{font-size:18px;font-weight:bold}</style>
 </head><body>
-<h1>إيصال خدمة</h1>
+<h1>فاتورة خدمات</h1>
 <p style="text-align:center">${escapeHtml(job.receiptNo)}</p>
 <div class="line"></div>
 <p>التاريخ: ${escapeHtml(job.date)}</p>
 <p>العميل: ${escapeHtml(job.customerName || 'عميل نقدي')}</p>
 <table>
-<tr><td>الخدمة</td><td>${escapeHtml(serviceTitle)}</td></tr>
-<tr><td>الوصف</td><td>${escapeHtml(job.description || '—')}</td></tr>
-${printRows}
-<tr><td>سعر الوحدة</td><td>${Number(job.unitPrice).toFixed(2)} ج.م</td></tr>
+<thead><tr><th>الخدمة</th><th>الوصف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+<tbody>${itemRows}</tbody>
+</table>
+<table>
 <tr><td>رسوم إضافية</td><td>${Number(job.extraFees).toFixed(2)} ج.م</td></tr>
 <tr><td>الخصم</td><td>${Number(job.discount).toFixed(2)} ج.م</td></tr>
 <tr><td class="total">الإجمالي</td><td class="total">${Number(job.total).toFixed(2)} ج.م</td></tr>
@@ -196,14 +243,18 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
 
   async function saveJob() {
     if (!receiptNo.trim()) {
-      setNotice('اكتب رقم الإيصال.');
+      setNotice('اكتب رقم الفاتورة.');
       return;
     }
-    if (!selected) {
-      setNotice('أضف خدمة واحدة على الأقل من تبويب الخدمات.');
+    const valid = computedLines.filter((l) => l.serviceName && l.lineTotal >= 0 && l.quantity > 0);
+    if (valid.length === 0) {
+      setNotice('أضف بند خدمة واحدًا على الأقل.');
       return;
     }
-    const usePrintMeta = showPrintDetails || chargeUnit === 'page' || chargeUnit === 'copy';
+    if (activeServices.length === 0) {
+      setNotice('أضف خدمة من تبويب الخدمات والأسعار أولًا.');
+      return;
+    }
     setBusy(true);
     setNotice('');
     try {
@@ -213,39 +264,49 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
           receiptNo: receiptNo.trim(),
           receiptDate: date,
           customerName: customerName.trim() || undefined,
-          serviceId: selected.id,
-          serviceName: selected.name,
-          description: description.trim() || selected.name,
-          paperSize: usePrintMeta ? paperSize : '—',
-          colorMode: usePrintMeta ? colorMode : '—',
-          pages: chargeUnit === 'page' || usePrintMeta ? pagesN : 1,
-          copies: chargeUnit !== 'job' || usePrintMeta ? copiesN : 1,
-          sides: usePrintMeta ? sides : '—',
-          unitPrice: priceN,
           extraFees: extras,
           discount: discountN,
           total,
           paidAmount: Math.min(total, paidN),
           notes: notes.trim() || undefined,
+          items: valid.map((l) => ({
+            serviceId: l.serviceId || undefined,
+            serviceName: l.serviceName,
+            description: l.description || undefined,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            lineTotal: l.lineTotal,
+          })),
         }),
       });
       setNotice(
-        `تم حفظ الإيصال ${job.receiptNo}` +
-          (job.paid > 0 ? ' وتسجيل المبلغ في الخزينة.' : '.'),
+        `تم إنشاء الفاتورة ${job.receiptNo}` + (job.paid > 0 ? ' وتسجيل المدفوع في الخزينة.' : '.'),
       );
       setReceiptNo(makeReceiptNo());
       setCustomerName('');
-      setDescription('');
-      setPages('1');
-      setCopies('1');
       setExtraFees('0');
       setDiscount('0');
       setPaid('');
       setNotes('');
+      const first = activeServices[0];
+      setLines(
+        first
+          ? [
+              {
+                key: crypto.randomUUID(),
+                serviceId: first.id,
+                serviceName: first.name,
+                description: '',
+                quantity: '1',
+                unitPrice: String(first.unitPrice),
+              },
+            ]
+          : [],
+      );
       await loadAll();
       printJob(job);
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'تعذر حفظ الإيصال.');
+      setNotice(e instanceof Error ? e.message : 'تعذر حفظ الفاتورة.');
     } finally {
       setBusy(false);
     }
@@ -399,11 +460,11 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
       <div className="pur-tabs" role="tablist">
         <button type="button" className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>
           <IconReceipt size={16} />
-          <span>إيصال جديد</span>
+          <span>فاتورة جديدة</span>
         </button>
         <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>
           <IconPrint size={16} />
-          <span>سجل الإيصالات</span>
+          <span>سجل الفواتير</span>
         </button>
         <button type="button" className={tab === 'services' ? 'active' : ''} onClick={() => setTab('services')}>
           <IconWallet size={16} />
@@ -501,15 +562,16 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
         <section className="purchase-panel pur-invoice">
           <div className="panel-heading">
             <div>
-              <h2>إيصال خدمة جديد</h2>
-              <p>عند الحفظ مع مبلغ مدفوع يُقيَّد تلقائيًا في الخزينة (فئة: خدمات).</p>
+              <h2>إنشاء فاتورة خدمات</h2>
+              <p>عدة بنود في فاتورة واحدة · المدفوع يُقيَّد في الخزينة تلقائيًا.</p>
             </div>
           </div>
+
           <div className="pur-section">
-            <div className="pur-section-title">بيانات الإيصال</div>
+            <div className="pur-section-title">بيانات الفاتورة</div>
             <div className="settings-form-grid">
               <label className="pur-field">
-                رقم الإيصال
+                رقم الفاتورة
                 <input value={receiptNo} onChange={(e) => setReceiptNo(e.target.value)} dir="ltr" />
               </label>
               <label className="pur-field">
@@ -520,109 +582,115 @@ ${job.notes ? `<p>ملاحظات: ${escapeHtml(job.notes)}</p>` : ''}
                 العميل
                 <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="عميل نقدي" />
               </label>
-              <label className="pur-field">
-                الخدمة
-                <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-                  {activeServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — {money(s.unitPrice)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
-                الوصف
-                <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="اختياري" />
-              </label>
             </div>
           </div>
 
           <div className="pur-section">
-            <div className="pur-section-title">
-              التفاصيل{' '}
-              <button
-                type="button"
-                className="secondary-btn small"
-                style={{ marginInlineStart: 8 }}
-                onClick={() => setShowPrintDetails((v) => !v)}
-              >
-                {showPrintDetails ? 'إخفاء' : 'إظهار'} صفحات/نسخ
-              </button>
+            <div className="pur-section-title">بنود الفاتورة</div>
+            <div className="sale-lines-wrap pur-lines">
+              <table className="sale-lines-table">
+                <thead>
+                  <tr>
+                    <th>الخدمة</th>
+                    <th>الوصف</th>
+                    <th>الكمية</th>
+                    <th>سعر الوحدة</th>
+                    <th>الإجمالي</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {computedLines.map((l) => (
+                    <tr key={l.key}>
+                      <td>
+                        <select value={l.serviceId} onChange={(e) => setLineService(l.key, e.target.value)}>
+                          {activeServices.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={l.description}
+                          onChange={(e) => updateLine(l.key, { description: e.target.value })}
+                          placeholder="اختياري"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0.001}
+                          step="1"
+                          value={l.quantity}
+                          onChange={(e) => updateLine(l.key, { quantity: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={l.unitPrice}
+                          onChange={(e) => updateLine(l.key, { unitPrice: e.target.value })}
+                        />
+                      </td>
+                      <td>{money(l.lineTotal)}</td>
+                      <td>
+                        <button className="danger-outline-btn small" type="button" onClick={() => removeLine(l.key)}>
+                          حذف
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {(showPrintDetails || chargeUnit === 'page' || chargeUnit === 'copy') && (
-              <div className="settings-form-grid">
-                <label className="pur-field">
-                  المقاس
-                  <select value={paperSize} onChange={(e) => setPaperSize(e.target.value)}>
-                    <option>A4</option>
-                    <option>A3</option>
-                    <option>A5</option>
-                    <option>Letter</option>
-                  </select>
-                </label>
-                <label className="pur-field">
-                  اللون
-                  <select value={colorMode} onChange={(e) => setColorMode(e.target.value as 'bw' | 'color')}>
-                    <option value="bw">أبيض وأسود</option>
-                    <option value="color">ألوان</option>
-                  </select>
-                </label>
-                <label className="pur-field">
-                  صفحات
-                  <input type="number" min={1} value={pages} onChange={(e) => setPages(e.target.value)} />
-                </label>
-                <label className="pur-field">
-                  نسخ
-                  <input type="number" min={1} value={copies} onChange={(e) => setCopies(e.target.value)} />
-                </label>
-                <label className="pur-field">
-                  الوجه
-                  <select value={sides} onChange={(e) => setSides(e.target.value as 'single' | 'double')}>
-                    <option value="single">وجه واحد</option>
-                    <option value="double">وجهين</option>
-                  </select>
-                </label>
-              </div>
-            )}
-            <div className="settings-form-grid" style={{ marginTop: 12 }}>
-              <label className="pur-field">
-                سعر الوحدة
-                <input type="number" min={0} step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
-              </label>
-              <label className="pur-field">
-                رسوم إضافية
-                <input type="number" min={0} step="0.01" value={extraFees} onChange={(e) => setExtraFees(e.target.value)} />
-              </label>
-              <label className="pur-field">
-                خصم
-                <input type="number" min={0} step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-              </label>
-              <label className="pur-field">
-                المدفوع (فارغ = كامل)
-                <input type="number" min={0} step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder={String(total)} />
-              </label>
-              <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
-                ملاحظات
-                <input value={notes} onChange={(e) => setNotes(e.target.value)} />
-              </label>
+            <div className="pur-lines-actions">
+              <button className="add-line-btn" type="button" onClick={addLine}>
+                + إضافة بند
+              </button>
             </div>
           </div>
 
           <div className="pur-footer">
             <div className="pur-footer-fields">
-              <div className="sale-total-item">
-                <span>طريقة الحساب</span>
-                <strong style={{ fontSize: 13 }}>{unitLabel(chargeUnit)}</strong>
-              </div>
+              <label>
+                رسوم إضافية
+                <input type="number" min={0} step="0.01" value={extraFees} onChange={(e) => setExtraFees(e.target.value)} />
+              </label>
+              <label>
+                خصم
+                <input type="number" min={0} step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+              </label>
+              <label>
+                المدفوع (فارغ = كامل)
+                <input type="number" min={0} step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder={String(total)} />
+              </label>
+              <label className="pur-field--grow">
+                ملاحظات
+                <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </label>
             </div>
             <div className="pur-footer-summary">
+              <div className="sale-totals-grid">
+                <div className="sale-total-item">
+                  <span>المجموع</span>
+                  <strong>{money(subtotal)}</strong>
+                </div>
+                <div className="sale-total-item">
+                  <span>بعد الخصم/الرسوم</span>
+                  <strong>{money(total)}</strong>
+                </div>
+              </div>
               <div className="pur-total-box">
-                <span>الإجمالي</span>
+                <span>إجمالي الفاتورة</span>
                 <strong>{money(total)}</strong>
               </div>
               <div className="pur-footer-actions">
                 <button className="primary-btn" type="button" disabled={busy} onClick={() => void saveJob()}>
-                  حفظ وطباعة
+                  إنشاء الفاتورة وطباعة
                 </button>
               </div>
             </div>

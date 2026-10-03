@@ -173,6 +173,7 @@ export class ServiceReceiptsController {
       where: { organizationId: user.organizationId },
       orderBy: [{ receiptDate: 'desc' }, { createdAt: 'desc' }],
       take: 500,
+      include: { items: true },
     });
     return rows.map((r) => this.mapReceipt(r));
   }
@@ -199,23 +200,82 @@ export class ServiceReceiptsController {
       total?: number;
       paidAmount?: number;
       notes?: string;
+      items?: Array<{
+        serviceId?: string;
+        serviceName?: string;
+        description?: string;
+        quantity?: number;
+        unitPrice?: number;
+        lineTotal?: number;
+      }>;
     },
   ) {
     const receiptNo = body.receiptNo?.trim() || `S-${Date.now()}`;
-    const serviceName = body.serviceName?.trim() || 'خدمة';
-    const total = Math.max(0, Number(body.total) || 0);
-    const paidAmount = Math.max(0, Number(body.paidAmount) || 0);
-    if (paidAmount > total + 0.001) throw new BadRequestException('المدفوع أكبر من الإجمالي.');
+    const discount = Math.max(0, Number(body.discount) || 0);
+    const extraFees = Math.max(0, Number(body.extraFees) || 0);
 
-    let serviceId = body.serviceId?.trim() || null;
-    if (serviceId) {
-      const svc = await this.prisma.service.findFirst({
-        where: { id: serviceId, organizationId: user.organizationId },
-      });
-      if (!svc) serviceId = null;
+    // Multi-line invoice items (preferred) or single-line legacy body
+    let lineItems = (body.items || [])
+      .map((it) => {
+        const quantity = Math.max(0.001, Number(it.quantity) || 1);
+        const unitPrice = Math.max(0, Number(it.unitPrice) || 0);
+        const lineTotal =
+          it.lineTotal !== undefined && Number.isFinite(Number(it.lineTotal))
+            ? Math.max(0, Number(it.lineTotal))
+            : quantity * unitPrice;
+        const serviceName = (it.serviceName || body.serviceName || 'خدمة').trim();
+        return {
+          serviceId: it.serviceId?.trim() || null,
+          serviceName,
+          description: it.description?.trim() || null,
+          quantity,
+          unitPrice,
+          lineTotal,
+        };
+      })
+      .filter((it) => it.serviceName && it.lineTotal >= 0);
+
+    if (lineItems.length === 0) {
+      const serviceName = body.serviceName?.trim() || 'خدمة';
+      const unitPrice = Math.max(0, Number(body.unitPrice) || 0);
+      const pages = Math.max(1, Math.floor(Number(body.pages) || 1));
+      const copies = Math.max(1, Math.floor(Number(body.copies) || 1));
+      const lineTotal = unitPrice; // UI already computed complex cases into unitPrice/total historically
+      lineItems = [
+        {
+          serviceId: body.serviceId?.trim() || null,
+          serviceName,
+          description: body.description?.trim() || null,
+          quantity: 1,
+          unitPrice,
+          lineTotal: Math.max(0, Number(body.total) || lineTotal) - extraFees + discount > 0
+            ? Math.max(0, (Number(body.total) || 0) - extraFees + discount)
+            : lineTotal,
+        },
+      ];
     }
 
+    const subtotal = lineItems.reduce((s, it) => s + it.lineTotal, 0);
+    const total =
+      body.total !== undefined && Number.isFinite(Number(body.total))
+        ? Math.max(0, Number(body.total))
+        : Math.max(0, subtotal + extraFees - discount);
+    const paidAmount = Math.max(0, Number(body.paidAmount) || 0);
+    if (paidAmount > total + 0.001) throw new BadRequestException('المدفوع أكبر من الإجمالي.');
+    if (lineItems.length === 0) throw new BadRequestException('أضف بند خدمة واحدًا على الأقل.');
+
+    const primaryName = lineItems.map((i) => i.serviceName).join(' + ').slice(0, 200);
     const receiptDate = body.receiptDate ? new Date(body.receiptDate + 'T12:00:00') : new Date();
+
+    // validate service ids belong to org
+    for (const it of lineItems) {
+      if (it.serviceId) {
+        const svc = await this.prisma.service.findFirst({
+          where: { id: it.serviceId, organizationId: user.organizationId },
+        });
+        if (!svc) it.serviceId = null;
+      }
+    }
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -231,40 +291,52 @@ export class ServiceReceiptsController {
               amount: paidAmount,
               method: 'CASH',
               reference: receiptNo,
-              notes: `إيصال خدمة: ${serviceName}${body.customerName ? ` — ${body.customerName}` : ''}`,
+              notes: `فاتورة خدمات: ${primaryName}${body.customerName ? ` — ${body.customerName}` : ''}`,
             },
           });
           cashId = cash.id;
         }
-        return tx.serviceReceipt.create({
+        const receipt = await tx.serviceReceipt.create({
           data: {
             organizationId: user.organizationId,
             userId: user.userId,
-            serviceId,
+            serviceId: lineItems[0]?.serviceId || null,
             receiptNo,
             receiptDate,
             customerName: body.customerName?.trim() || null,
-            serviceName,
+            serviceName: primaryName,
             description: body.description?.trim() || null,
             paperSize: body.paperSize || null,
             colorMode: body.colorMode || null,
             pages: Math.max(1, Math.floor(Number(body.pages) || 1)),
             copies: Math.max(1, Math.floor(Number(body.copies) || 1)),
             sides: body.sides || null,
-            unitPrice: Math.max(0, Number(body.unitPrice) || 0),
-            extraFees: Math.max(0, Number(body.extraFees) || 0),
-            discount: Math.max(0, Number(body.discount) || 0),
+            unitPrice: lineItems[0]?.unitPrice || 0,
+            extraFees,
+            discount,
             total,
             paidAmount,
             notes: body.notes?.trim() || null,
             cashTransactionId: cashId,
+            items: {
+              create: lineItems.map((it) => ({
+                serviceId: it.serviceId,
+                serviceName: it.serviceName,
+                description: it.description,
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+                lineTotal: it.lineTotal,
+              })),
+            },
           },
+          include: { items: true },
         });
+        return receipt;
       });
       return this.mapReceipt(result);
     } catch (e: unknown) {
       if (typeof e === 'object' && e && 'code' in e && (e as { code: string }).code === 'P2002') {
-        throw new BadRequestException('رقم الإيصال مستخدم بالفعل.');
+        throw new BadRequestException('رقم الفاتورة/الإيصال مستخدم بالفعل.');
       }
       throw e;
     }
@@ -308,7 +380,25 @@ export class ServiceReceiptsController {
     notes: string | null;
     cashTransactionId: string | null;
     createdAt: Date;
+    items?: Array<{
+      id: string;
+      serviceId: string | null;
+      serviceName: string;
+      description: string | null;
+      quantity: Prisma.Decimal;
+      unitPrice: Prisma.Decimal;
+      lineTotal: Prisma.Decimal;
+    }>;
   }) {
+    const items = (r.items || []).map((it) => ({
+      id: it.id,
+      serviceId: it.serviceId,
+      serviceName: it.serviceName,
+      description: it.description,
+      quantity: Number(it.quantity),
+      unitPrice: Number(it.unitPrice),
+      lineTotal: Number(it.lineTotal),
+    }));
     return {
       id: r.id,
       receiptNo: r.receiptNo,
@@ -332,6 +422,7 @@ export class ServiceReceiptsController {
       notes: r.notes,
       cashTransactionId: r.cashTransactionId,
       createdAt: r.createdAt.toISOString(),
+      items,
     };
   }
 }
