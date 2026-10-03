@@ -4506,3 +4506,53 @@ aside.sidebar.sidebar--collapsed {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+
+/* ملصقات الباركود */
+.labels-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: flex-end;
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.labels-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  min-width: 120px;
+}
+.labels-toolbar .labels-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.labels-toolbar input[type="text"],
+.labels-toolbar input:not([type="checkbox"]),
+.labels-toolbar select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: #fff;
+  font: inherit;
+  color: var(--color-text);
+}
+.labels-check {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: auto !important;
+  padding-bottom: 8px;
+  color: var(--color-text) !important;
+}
+.labels-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-inline-start: auto;
+  padding-bottom: 2px;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
 
 type Product = {
@@ -7,6 +7,7 @@ type Product = {
   barcode?: string | null;
   salePrice?: number | string;
   unit?: string | null;
+  active?: boolean;
 };
 
 function escapeHtml(s: string) {
@@ -19,27 +20,45 @@ function escapeHtml(s: string) {
 
 export function Labels() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<Record<string, number>>({});
   const [notice, setNotice] = useState('');
   const [cols, setCols] = useState(3);
   const [showPrice, setShowPrice] = useState(true);
+  const [onlyWithBarcode, setOnlyWithBarcode] = useState(false);
 
   useEffect(() => {
     void (async () => {
+      setLoading(true);
+      setNotice('');
       try {
         const rows = await apiRequest<Product[]>('/inventory');
-        setProducts(Array.isArray(rows) ? rows : []);
+        const list = Array.isArray(rows) ? rows : [];
+        setProducts(list);
+        if (list.length === 0) {
+          setNotice('لا توجد أصناف في المخزون. أضف منتجات من الإعدادات أو من فاتورة وارد أولًا.');
+        }
       } catch (e) {
         setNotice(e instanceof Error ? e.message : 'تعذر تحميل الأصناف');
+        setProducts([]);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
 
-  const filtered = products.filter((p) => {
-    const s = `${p.name} ${p.barcode || ''}`.toLowerCase();
-    return !q.trim() || s.includes(q.trim().toLowerCase());
-  });
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return products.filter((p) => {
+      if (onlyWithBarcode && !String(p.barcode || '').trim()) return false;
+      if (!term) return true;
+      const s = `${p.name} ${p.barcode || ''}`.toLowerCase();
+      return s.includes(term);
+    });
+  }, [products, q, onlyWithBarcode]);
+
+  const withBarcodeCount = products.filter((p) => String(p.barcode || '').trim()).length;
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -54,21 +73,36 @@ export function Labels() {
     setSelected((prev) => ({ ...prev, [id]: Math.max(1, Math.min(50, n || 1)) }));
   }
 
+  function selectAllWithBarcode() {
+    const next: Record<string, number> = {};
+    for (const p of filtered) {
+      if (String(p.barcode || '').trim()) next[p.id] = selected[p.id] || 1;
+    }
+    setSelected(next);
+    setNotice(`تم تحديد ${Object.keys(next).length} صنفًا له باركود.`);
+  }
+
+  function clearSelection() {
+    setSelected({});
+  }
+
   function printLabels() {
     const items: Array<Product & { copies: number }> = [];
     for (const p of products) {
       const copies = selected[p.id];
       if (!copies) continue;
-      if (!p.barcode?.trim()) {
-        setNotice(`الصنف «${p.name}» بدون باركود — تخطّيه أو أضف باركودًا.`);
-        continue;
+      const code = String(p.barcode || '').trim();
+      if (!code) {
+        setNotice(`«${p.name}» بدون باركود — ألغِ تحديده أو أضف باركودًا من المنتجات.`);
+        return;
       }
-      items.push({ ...p, copies });
+      items.push({ ...p, copies, barcode: code });
     }
     if (items.length === 0) {
-      setNotice('اختر أصنافًا لها باركود.');
+      setNotice('حدّد أصنافًا لها باركود من الجدول أولًا.');
       return;
     }
+
     const labelsHtml = items
       .flatMap((p) =>
         Array.from({ length: p.copies }, () => {
@@ -76,8 +110,8 @@ export function Labels() {
           return `<div class="label">
   <div class="name">${escapeHtml(p.name)}</div>
   ${showPrice ? `<div class="price">${price.toFixed(2)} ج.م</div>` : ''}
-  <svg class="bc" data-barcode="${escapeHtml(p.barcode || '')}"></svg>
-  <div class="code" dir="ltr">${escapeHtml(p.barcode || '')}</div>
+  <svg class="bc" data-barcode="${escapeHtml(String(p.barcode))}"></svg>
+  <div class="code" dir="ltr">${escapeHtml(String(p.barcode))}</div>
 </div>`;
         }),
       )
@@ -93,7 +127,7 @@ export function Labels() {
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
 <style>
   @page { margin: 6mm; }
-  body { font-family: Tahoma, Arial, sans-serif; margin: 0; }
+  body { font-family: Tahoma, Arial, sans-serif; margin: 0; background: #fff; }
   .sheet { display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 4mm; padding: 4mm; }
   .label {
     border: 1px dashed #94a3b8;
@@ -125,77 +159,144 @@ export function Labels() {
   }
 
   return (
-    <div className="panel">
+    <div className="panel labels-panel">
       <div className="panel-heading">
         <div>
           <h2>ملصقات الباركود</h2>
-          <p className="muted-sm">اختر الأصناف واطبع ملصقات للرف أو العبوة (CODE128).</p>
+          <p className="muted-sm">
+            اختر الأصناف واطبع ملصقات للرف أو العبوة (CODE128).
+            {products.length > 0 && (
+              <>
+                {' '}
+                — {products.length} صنف، منها {withBarcodeCount} بباركود
+              </>
+            )}
+          </p>
         </div>
-        <button type="button" className="primary-btn" onClick={printLabels}>
+        <button type="button" className="primary-btn" onClick={printLabels} disabled={loading}>
           طباعة الملصقات
         </button>
       </div>
+
       {notice && (
         <p className="feedback" role="status">
           {notice}
         </p>
       )}
-      <div className="filter-bar">
-        <label className="grow">
-          بحث
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="اسم أو باركود" />
+
+      <div className="labels-toolbar">
+        <label className="labels-search">
+          <span>بحث</span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="اسم أو باركود"
+            dir="auto"
+          />
         </label>
         <label>
-          أعمدة الصفحة
+          <span>أعمدة الصفحة</span>
           <select value={cols} onChange={(e) => setCols(Number(e.target.value))}>
             <option value={2}>2</option>
             <option value={3}>3</option>
             <option value={4}>4</option>
           </select>
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label className="labels-check">
           <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} />
-          إظهار السعر
+          <span>إظهار السعر</span>
         </label>
+        <label className="labels-check">
+          <input
+            type="checkbox"
+            checked={onlyWithBarcode}
+            onChange={(e) => setOnlyWithBarcode(e.target.checked)}
+          />
+          <span>باركود فقط</span>
+        </label>
+        <div className="labels-actions">
+          <button type="button" className="secondary-btn" onClick={selectAllWithBarcode}>
+            تحديد الكل (بباركود)
+          </button>
+          <button type="button" className="secondary-btn" onClick={clearSelection}>
+            إلغاء التحديد
+          </button>
+          {q && (
+            <button type="button" className="secondary-btn" onClick={() => setQ('')}>
+              مسح البحث
+            </button>
+          )}
+        </div>
       </div>
+
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th></th>
+              <th style={{ width: 40 }}></th>
               <th>الصنف</th>
               <th>الباركود</th>
               <th>السعر</th>
-              <th>عدد الملصقات</th>
+              <th style={{ width: 110 }}>عدد الملصقات</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(selected[p.id])}
-                    onChange={() => toggle(p.id)}
-                    disabled={!p.barcode}
-                  />
-                </td>
-                <td>{p.name}</td>
-                <td dir="ltr">{p.barcode || '—'}</td>
-                <td>{Number(p.salePrice || 0).toFixed(2)}</td>
-                <td>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    style={{ width: 70 }}
-                    disabled={!selected[p.id]}
-                    value={selected[p.id] || 1}
-                    onChange={(e) => setQty(p.id, Number(e.target.value))}
-                  />
+            {loading && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>
+                  جاري تحميل الأصناف…
                 </td>
               </tr>
-            ))}
+            )}
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: '#64748b' }}>
+                  {products.length === 0
+                    ? 'لا توجد أصناف. أضف منتجات من «الإعدادات → المنتجات» أو من المشتريات.'
+                    : q
+                      ? `لا نتائج للبحث «${q}». امسح البحث لعرض كل الأصناف.`
+                      : 'لا أصناف تطابق الفلتر الحالي.'}
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              filtered.map((p) => {
+                const hasBc = Boolean(String(p.barcode || '').trim());
+                return (
+                  <tr key={p.id} style={{ opacity: hasBc ? 1 : 0.75 }}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(selected[p.id])}
+                        onChange={() => toggle(p.id)}
+                        disabled={!hasBc}
+                        title={hasBc ? 'تحديد' : 'أضف باركودًا أولًا'}
+                      />
+                    </td>
+                    <td>
+                      <strong>{p.name}</strong>
+                      {!hasBc && (
+                        <div className="muted-sm" style={{ color: '#b45309' }}>
+                          بدون باركود — عدّل المنتج من الإعدادات
+                        </div>
+                      )}
+                    </td>
+                    <td dir="ltr">{p.barcode || '—'}</td>
+                    <td>{Number(p.salePrice || 0).toFixed(2)}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        style={{ width: 72 }}
+                        disabled={!selected[p.id]}
+                        value={selected[p.id] || 1}
+                        onChange={(e) => setQty(p.id, Number(e.target.value))}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
