@@ -36,16 +36,21 @@ export class ServicesController {
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     if (rows.length === 0) {
-      await this.prisma.service.createMany({
-        data: DEFAULT_SERVICES.map((s) => ({
-          organizationId: user.organizationId,
-          name: s.name,
-          unitPrice: s.unitPrice,
-          chargeUnit: s.chargeUnit,
-          sortOrder: s.sortOrder,
-          active: true,
-        })),
-      });
+      try {
+        await this.prisma.service.createMany({
+          data: DEFAULT_SERVICES.map((s) => ({
+            organizationId: user.organizationId,
+            name: s.name,
+            unitPrice: s.unitPrice,
+            chargeUnit: s.chargeUnit,
+            sortOrder: s.sortOrder,
+            active: true,
+          })),
+          skipDuplicates: true,
+        });
+      } catch {
+        // طلب متزامن آخر زرع الخدمات — نتابع بالقراءة
+      }
       rows = await this.prisma.service.findMany({
         where: { organizationId: user.organizationId },
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -219,10 +224,8 @@ export class ServiceReceiptsController {
       .map((it) => {
         const quantity = Math.max(0.001, Number(it.quantity) || 1);
         const unitPrice = Math.max(0, Number(it.unitPrice) || 0);
-        const lineTotal =
-          it.lineTotal !== undefined && Number.isFinite(Number(it.lineTotal))
-            ? Math.max(0, Number(it.lineTotal))
-            : quantity * unitPrice;
+        // الإجمالي من السيرفر فقط — لا نثق في lineTotal القادم من العميل
+        const lineTotal = quantity * unitPrice;
         const serviceName = (it.serviceName || body.serviceName || 'خدمة').trim();
         return {
           serviceId: it.serviceId?.trim() || null,
@@ -265,7 +268,12 @@ export class ServiceReceiptsController {
     if (lineItems.length === 0) throw new BadRequestException('أضف بند خدمة واحدًا على الأقل.');
 
     const primaryName = lineItems.map((i) => i.serviceName).join(' + ').slice(0, 200);
-    const receiptDate = body.receiptDate ? new Date(body.receiptDate + 'T12:00:00') : new Date();
+    let receiptDate = new Date();
+    if (body.receiptDate) {
+      const raw = body.receiptDate.trim();
+      receiptDate = new Date(raw.includes('T') ? raw : raw + 'T12:00:00');
+      if (Number.isNaN(receiptDate.getTime())) throw new BadRequestException('تاريخ الإيصال غير صحيح.');
+    }
 
     // validate service ids belong to org
     for (const it of lineItems) {

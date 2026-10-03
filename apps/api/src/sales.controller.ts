@@ -342,19 +342,27 @@ export class SalesController {
                 `كمية المرتجع تتجاوز المتبقي للصنف ${item.productName}. المتبقي: ${remaining}`,
               );
             }
+            // نصيب السطر من صافي الفاتورة بعد الخصم (مش سعر القائمة قبل الخصم)
+            const saleSub = Number(sale.subtotal) || 0;
+            const saleNet = Number(sale.total) || 0;
+            const grossLine = quantity * Number(item.unitPrice);
+            const netLine =
+              saleSub > 0 ? (grossLine / saleSub) * saleNet : grossLine;
             lines.push({
               item,
               quantity,
-              lineTotal: quantity * Number(item.unitPrice),
+              lineTotal: netLine,
             });
           }
 
           const total = lines.reduce((s, l) => s + l.lineTotal, 0);
-          let refundAmount = body.refundAmount !== undefined ? Number(body.refundAmount) : total;
+          // سقف الاسترداد: ما دفعه العميل فعليًا على الفاتورة (تقريبيًا) أو صافي البنود
+          const maxRefund = Math.min(total, Number(sale.paidAmount) || total);
+          let refundAmount = body.refundAmount !== undefined ? Number(body.refundAmount) : maxRefund;
           if (!Number.isFinite(refundAmount) || refundAmount < 0) {
             throw new BadRequestException('مبلغ الاسترداد غير صحيح.');
           }
-          if (refundAmount > total + 1e-9) refundAmount = total;
+          if (refundAmount > maxRefund + 1e-9) refundAmount = maxRefund;
 
           const saleReturn = await tx.saleReturn.create({
             data: {
@@ -397,11 +405,20 @@ export class SalesController {
               );
             }
             if (l.item.productId) {
+              const prod = await tx.product.findFirst({
+                where: { id: l.item.productId, organizationId: user.organizationId },
+                select: { piecesPerPack: true },
+              });
+              const pieces = piecesFromSaleLine(
+                l.quantity,
+                l.item.unit,
+                prod?.piecesPerPack || 1,
+              );
               await tx.stockMovement.create({
                 data: {
                   organizationId: user.organizationId,
                   productId: l.item.productId,
-                  quantity: new Prisma.Decimal(l.quantity),
+                  quantity: new Prisma.Decimal(pieces),
                   type: 'SALE_RETURN',
                   reason: `مرتجع بيع ${sale.invoiceNumber}`,
                   notes: body.reason?.trim() || `إرجاع من فاتورة ${sale.invoiceNumber}`,

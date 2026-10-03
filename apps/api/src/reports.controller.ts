@@ -3,12 +3,25 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { AuthUser, CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission } from './auth';
 
+/** يفسّر YYYY-MM-DD كتاريخ محلي (بدون إزاحة UTC التي تُرجع اليوم السابق في القاهرة). */
 function parseDateBound(value: string | undefined, endOfDay: boolean): Date | undefined {
   if (!value?.trim()) return undefined;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) throw new BadRequestException('تاريخ غير صحيح.');
-  if (endOfDay) d.setHours(23, 59, 59, 999);
-  else d.setHours(0, 0, 0, 0);
+  const raw = value.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  let d: Date;
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const day = Number(m[3]);
+    d = endOfDay
+      ? new Date(y, mo, day, 23, 59, 59, 999)
+      : new Date(y, mo, day, 0, 0, 0, 0);
+  } else {
+    d = new Date(raw);
+    if (Number.isNaN(d.getTime())) throw new BadRequestException('تاريخ غير صحيح.');
+    if (endOfDay) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+  }
   return d;
 }
 

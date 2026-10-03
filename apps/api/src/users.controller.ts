@@ -23,6 +23,7 @@ import {
 } from './auth';
 import { hashPassword, isStrongPassword, PASSWORD_POLICY_MESSAGE } from './crypto.util';
 import { AuditService } from './audit.service';
+import { CreateUserDto, UpdateUserDto } from './dto/users.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -69,7 +70,7 @@ export class UsersController {
   @RequirePermission('users')
   async create(
     @CurrentUser() actor: AuthUser,
-    @Body() body: { fullName?: string; email?: string; password?: string; role?: string; permissions?: string[] },
+    @Body() body: CreateUserDto,
   ) {
     if (actor.role !== 'OWNER') {
       throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
@@ -144,7 +145,7 @@ export class UsersController {
   async update(
     @CurrentUser() actor: AuthUser,
     @Param('id') id: string,
-    @Body() body: { fullName?: string; role?: string; permissions?: string[]; active?: boolean; password?: string },
+    @Body() body: UpdateUserDto,
   ) {
     if (actor.role !== 'OWNER') {
       throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');

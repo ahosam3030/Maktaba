@@ -3,6 +3,7 @@ import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import { CurrentUser, JwtAuthGuard, PermissionsGuard, RequirePermission, AuthUser } from './auth';
+import { AuditService } from './audit.service';
 
 @Controller('suppliers')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -19,10 +20,20 @@ export class SuppliersController {
   async create(@CurrentUser() user: AuthUser, @Body() body: { name?: string; phone?: string; notes?: string }) {
     const name = body.name?.trim();
     if (!name) throw new BadRequestException('اسم المورد مطلوب.');
+    const phone = body.phone !== undefined ? (body.phone?.trim() || null) : undefined;
+    const notes = body.notes !== undefined ? (body.notes?.trim() || null) : undefined;
+    const update: { phone?: string | null; notes?: string | null } = {};
+    if (phone !== undefined) update.phone = phone;
+    if (notes !== undefined) update.notes = notes;
     return this.prisma.supplier.upsert({
       where: { organizationId_name: { organizationId: user.organizationId, name } },
-      create: { organizationId: user.organizationId, name, phone: body.phone?.trim() || null, notes: body.notes?.trim() || null },
-      update: { phone: body.phone?.trim() || null, notes: body.notes?.trim() || null },
+      create: {
+        organizationId: user.organizationId,
+        name,
+        phone: phone ?? null,
+        notes: notes ?? null,
+      },
+      update,
     });
   }
 }
@@ -36,7 +47,7 @@ type InvoiceInput = {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @RequirePermission('purchases')
 export class PurchaseInvoicesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
@@ -187,6 +198,15 @@ export class PurchaseInvoicesController {
       await tx.supplierPayment.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.purchaseInvoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
       await tx.purchaseInvoice.delete({ where: { id: invoice.id } });
+      await this.audit.log({
+        organizationId: user.organizationId,
+        userId: user.userId,
+        action: 'PURCHASE_DELETE',
+        entity: 'PurchaseInvoice',
+        entityId: invoice.id,
+        meta: { invoiceNumber: invoice.invoiceNumber },
+        success: true,
+      });
       return { ok: true, invoiceNumber: invoice.invoiceNumber };
     });
   }
