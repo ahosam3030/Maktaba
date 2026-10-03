@@ -11,6 +11,7 @@ import {
   clearSession,
   getStoredOrganization,
   getStoredUser,
+  hasPermission,
 } from '../data/api';
 import { AdminUsers } from './AdminUsers';
 import { Inventory } from './Inventory';
