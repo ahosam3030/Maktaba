@@ -1,7 +1,25 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import {
-  CurrentUser, JwtAuthGuard, AuthUser, ALL_PERMISSIONS, isAdminRole, parsePermissions, RequirePermission, PermissionsGuard,
+  CurrentUser,
+  JwtAuthGuard,
+  AuthUser,
+  ALL_PERMISSIONS,
+  isAdminRole,
+  parsePermissions,
+  RequirePermission,
+  PermissionsGuard,
 } from './auth';
 import { hashPassword } from './crypto.util';
 
@@ -17,7 +35,13 @@ export class UsersController {
       where: { organizationId: user.organizationId },
       orderBy: { createdAt: 'asc' },
       select: {
-        id: true, fullName: true, email: true, role: true, permissions: true, active: true, createdAt: true,
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        permissions: true,
+        active: true,
+        createdAt: true,
       },
     });
     return rows.map((r) => ({
@@ -43,7 +67,9 @@ export class UsersController {
     @CurrentUser() actor: AuthUser,
     @Body() body: { fullName?: string; email?: string; password?: string; role?: string; permissions?: string[] },
   ) {
-    if (actor.role !== 'OWNER') throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
+    if (actor.role !== 'OWNER') {
+      throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
+    }
     const fullName = body.fullName?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? '';
@@ -51,17 +77,18 @@ export class UsersController {
     if (!fullName || !email || password.length < 10) {
       throw new BadRequestException('الاسم والبريد وكلمة مرور لا تقل عن 10 أحرف مطلوبة.');
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('البريد الإلكتروني غير صحيح.');
-    if (!['ADMIN', 'USER'].includes(role)) {
-      // only OWNER exists from register; cannot create another OWNER via this endpoint
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('البريد الإلكتروني غير صحيح.');
+    }
+    if (!['OWNER', 'ADMIN', 'USER'].includes(role)) {
       role = 'USER';
     }
-    if (role === 'ADMIN' && actor.role !== 'OWNER') {
-      throw new ForbiddenException('المالك فقط يستطيع إنشاء أدمن.');
-    }
-    const perms = role === 'ADMIN'
-      ? [...ALL_PERMISSIONS]
-      : (Array.isArray(body.permissions) ? body.permissions : []).filter((p) => (ALL_PERMISSIONS as readonly string[]).includes(p));
+    const perms =
+      role === 'OWNER' || role === 'ADMIN'
+        ? [...ALL_PERMISSIONS]
+        : (Array.isArray(body.permissions) ? body.permissions : []).filter((p) =>
+            (ALL_PERMISSIONS as readonly string[]).includes(p),
+          );
     const passwordHash = await hashPassword(password);
     try {
       const created = await this.prisma.user.create({
@@ -74,9 +101,20 @@ export class UsersController {
           permissions: JSON.stringify(perms),
           active: true,
         },
-        select: { id: true, fullName: true, email: true, role: true, permissions: true, active: true, createdAt: true },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          permissions: true,
+          active: true,
+          createdAt: true,
+        },
       });
-      return { ...created, permissions: parsePermissions(created.permissions) };
+      return {
+        ...created,
+        permissions: isAdminRole(created.role) ? [...ALL_PERMISSIONS] : parsePermissions(created.permissions),
+      };
     } catch (error: unknown) {
       if (typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2002') {
         throw new BadRequestException('البريد الإلكتروني مستخدم بالفعل.');
@@ -92,12 +130,14 @@ export class UsersController {
     @Param('id') id: string,
     @Body() body: { fullName?: string; role?: string; permissions?: string[]; active?: boolean; password?: string },
   ) {
-    if (actor.role !== 'OWNER') throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
-    const target = await this.prisma.user.findFirst({ where: { id, organizationId: actor.organizationId } });
-    if (!target) throw new BadRequestException('المستخدم غير موجود.');
-    if (target.role === 'OWNER' && actor.userId !== target.id) {
-      throw new ForbiddenException('لا يمكن تعديل حساب المالك من مستخدم آخر.');
+    if (actor.role !== 'OWNER') {
+      throw new ForbiddenException('إنشاء وتعديل المستخدمين متاح لمالك المكتبة فقط.');
     }
+    const target = await this.prisma.user.findFirst({
+      where: { id, organizationId: actor.organizationId },
+    });
+    if (!target) throw new BadRequestException('المستخدم غير موجود.');
+
     if (target.id === actor.userId && body.active === false) {
       throw new BadRequestException('لا يمكنك تعطيل حسابك الحالي.');
     }
@@ -115,11 +155,15 @@ export class UsersController {
 
     if (body.role) {
       const role = body.role.toUpperCase();
-      if (target.role === 'OWNER') {
-        // keep OWNER
-      } else if (role === 'ADMIN' || role === 'USER') {
-        if (role === 'ADMIN' && actor.role !== 'OWNER') {
-          throw new ForbiddenException('المالك فقط يستطيع ترقية مستخدم لأدمن.');
+      if (['OWNER', 'ADMIN', 'USER'].includes(role)) {
+        // لا تخفّض آخر مالك
+        if (target.role === 'OWNER' && role !== 'OWNER') {
+          const owners = await this.prisma.user.count({
+            where: { organizationId: actor.organizationId, role: 'OWNER', active: true },
+          });
+          if (owners <= 1) {
+            throw new BadRequestException('لا يمكن تخفيض آخر مالك. أنشئ مالكًا آخر أولًا.');
+          }
         }
         data.role = role;
       }
@@ -144,11 +188,45 @@ export class UsersController {
     const updated = await this.prisma.user.update({
       where: { id: target.id },
       data,
-      select: { id: true, fullName: true, email: true, role: true, permissions: true, active: true, createdAt: true },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        permissions: true,
+        active: true,
+        createdAt: true,
+      },
     });
     return {
       ...updated,
       permissions: isAdminRole(updated.role) ? [...ALL_PERMISSIONS] : parsePermissions(updated.permissions),
     };
+  }
+
+  @Delete(':id')
+  @RequirePermission('users')
+  async remove(@CurrentUser() actor: AuthUser, @Param('id') id: string) {
+    if (actor.role !== 'OWNER') {
+      throw new ForbiddenException('حذف المستخدمين متاح لمالك المكتبة فقط.');
+    }
+    const target = await this.prisma.user.findFirst({
+      where: { id, organizationId: actor.organizationId },
+    });
+    if (!target) throw new BadRequestException('المستخدم غير موجود.');
+
+    if (target.role === 'OWNER') {
+      const owners = await this.prisma.user.count({
+        where: { organizationId: actor.organizationId, role: 'OWNER' },
+      });
+      if (owners <= 1) {
+        throw new BadRequestException(
+          'لا يمكن حذف آخر مالك. أنشئ حساب مالك ببياناتك أولًا ثم احذف الحساب الافتراضي.',
+        );
+      }
+    }
+
+    await this.prisma.user.delete({ where: { id: target.id } });
+    return { ok: true, id: target.id, email: target.email };
   }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { apiRequest, ALL_PERMISSIONS, getStoredUser, isAdminUser, type Permission } from '../data/api';
+import { apiRequest, ALL_PERMISSIONS, getStoredUser, clearSession, type Permission } from '../data/api';
 
 type OrgUser = {
   id: string;
@@ -16,11 +16,12 @@ const PERM_LABELS: Record<string, string> = {
   sales: 'المبيعات',
   inventory: 'المخزون',
   accounting: 'الخزينة',
-  printing: 'الخدمات', reports: 'التقارير',
+  printing: 'الخدمات',
+  reports: 'التقارير',
   users: 'إدارة المستخدمين',
 };
 
-export function AdminUsers() {
+export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
   const me = getStoredUser();
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [error, setError] = useState('');
@@ -30,11 +31,12 @@ export function AdminUsers() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'USER' | 'ADMIN'>('USER');
+  const [role, setRole] = useState<'USER' | 'ADMIN' | 'OWNER'>('USER');
   const [perms, setPerms] = useState<string[]>(['sales', 'printing']);
 
   const refresh = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const rows = await apiRequest<OrgUser[]>('/users');
       setUsers(rows);
@@ -45,10 +47,12 @@ export function AdminUsers() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   function togglePerm(p: string) {
-    setPerms((old) => old.includes(p) ? old.filter((x) => x !== p) : [...old, p]);
+    setPerms((old) => (old.includes(p) ? old.filter((x) => x !== p) : [...old, p]));
   }
 
   async function createUser() {
@@ -61,19 +65,29 @@ export function AdminUsers() {
           email: email.trim(),
           password,
           role,
-          permissions: role === 'ADMIN' ? [...ALL_PERMISSIONS] : perms,
+          permissions: role === 'USER' ? perms : [...ALL_PERMISSIONS],
         }),
       });
-      setNotice('تم إنشاء المستخدم.');
-      setFullName(''); setEmail(''); setPassword('');
-      setRole('USER'); setPerms(['sales', 'printing']);
+      setNotice(
+        role === 'OWNER'
+          ? 'تم إنشاء مالك جديد. يمكنك الآن حذف الحساب الافتراضي إن وُجد.'
+          : 'تم إضافة المستخدم.',
+      );
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setRole('USER');
+      setPerms(['sales', 'printing']);
       await refresh();
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : 'تعذر إنشاء المستخدم.');
+      setNotice(e instanceof Error ? e.message : 'تعذر الإضافة.');
     }
   }
 
-  async function saveUser(u: OrgUser, patch: Partial<{ role: string; permissions: string[]; active: boolean }>) {
+  async function saveUser(
+    u: OrgUser,
+    patch: Partial<{ role: string; permissions: string[]; active: boolean; fullName: string; password: string }>,
+  ) {
     setNotice('');
     try {
       await apiRequest(`/users/${u.id}`, { method: 'PATCH', body: JSON.stringify(patch) });
@@ -84,56 +98,135 @@ export function AdminUsers() {
     }
   }
 
+  async function deleteUser(u: OrgUser) {
+    const isSelf = me?.id === u.id;
+    if (
+      !confirm(
+        isSelf
+          ? `حذف حسابك الحالي «${u.email}»؟ ستحتاج للدخول بحساب مالك آخر.`
+          : `حذف المستخدم «${u.fullName}» (${u.email}) نهائيًا؟`,
+      )
+    ) {
+      return;
+    }
+    setNotice('');
+    try {
+      await apiRequest(`/users/${u.id}`, { method: 'DELETE' });
+      setNotice(`تم حذف ${u.email}.`);
+      if (isSelf) {
+        clearSession();
+        window.location.reload();
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'تعذر الحذف.');
+    }
+  }
+
   if (me?.role !== 'OWNER') {
     return (
-      <div className="purchases-page">
-        <div className="purchase-notice" role="alert">
-          إنشاء وتعديل حسابات المستخدمين متاح لمالك المكتبة فقط.
-        </div>
+      <div className="purchase-notice" role="alert">
+        إنشاء وتعديل حسابات المستخدمين متاح لمالك المكتبة فقط.
       </div>
     );
   }
 
-  return (
-    <div className="purchases-page">
-      <div className="purchase-title">
-        <div>
-          <span className="eyebrow">لوحة الأدمن</span>
-          <h1>إدارة المستخدمين (المالك فقط)</h1>
-          <p>أضف موظفين وحدّد الشاشات المسموح لهم بها. المالك والأدمن يريان كل الأقسام.</p>
-        </div>
-        <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث</button>
-      </div>
-      {notice && <div className="purchase-notice" role="status">{notice}</div>}
-      {error && <div className="purchase-notice" role="alert">{error}</div>}
+  const ownerCount = users.filter((u) => u.role === 'OWNER').length;
 
-      <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>مستخدم جديد</h2></div></div>
-        <div className="purchase-form-grid">
-          <label>الاسم<input value={fullName} onChange={(e) => setFullName(e.target.value)} /></label>
-          <label>البريد<input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label>كلمة المرور<input type="password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="10 أحرف على الأقل" /></label>
-          <label>الدور<select value={role} onChange={(e) => setRole(e.target.value as 'USER' | 'ADMIN')}>
-            <option value="USER">مستخدم عادي</option>
-            {me?.role === 'OWNER' && <option value="ADMIN">أدمن</option>}
-          </select></label>
+  return (
+    <div className={embedded ? '' : 'purchases-page'}>
+      {!embedded && (
+        <div className="purchase-title">
+          <div>
+            <span className="eyebrow">لوحة الأدمن</span>
+            <h1>إدارة المستخدمين</h1>
+          </div>
+        </div>
+      )}
+
+      {notice && (
+        <div className="purchase-notice" role="status">
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div className="purchase-notice" role="alert">
+          {error}
+        </div>
+      )}
+
+      <div className="settings-hint">
+        <strong>استبدال الحساب الافتراضي:</strong> أنشئ مستخدمًا بدور <em>مالك</em> ببريدك وكلمة مرورك، ثم احذف
+        حساب <code dir="ltr">admin@maktaba.local</code> من الجدول. يجب أن يبقى مالك واحد على الأقل.
+        {ownerCount > 0 && (
+          <span>
+            {' '}
+            (عدد الملاك حاليًا: {ownerCount})
+          </span>
+        )}
+      </div>
+
+      <section className="purchase-panel" style={{ marginTop: 12 }}>
+        <div className="panel-heading">
+          <div>
+            <h2>مستخدم جديد</h2>
+            <p>المالك / أدمن / مستخدم عادي مع صلاحيات محددة.</p>
+          </div>
+        </div>
+        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}>
+          <label>
+            الاسم
+            <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="الاسم بالكامل" />
+          </label>
+          <label>
+            البريد
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
+          </label>
+          <label>
+            كلمة المرور
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" minLength={10} />
+          </label>
+          <label>
+            الدور
+            <select value={role} onChange={(e) => setRole(e.target.value as 'USER' | 'ADMIN' | 'OWNER')}>
+              <option value="USER">مستخدم عادي</option>
+              <option value="ADMIN">أدمن</option>
+              <option value="OWNER">مالك</option>
+            </select>
+          </label>
         </div>
         {role === 'USER' && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: '12px 0' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
             {ALL_PERMISSIONS.filter((p) => p !== 'users').map((p) => (
-              <label key={p} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <label key={p} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
                 <input type="checkbox" checked={perms.includes(p)} onChange={() => togglePerm(p)} />
-                {PERM_LABELS[p] || p}
+                {PERM_LABELS[p as Permission] || p}
               </label>
             ))}
           </div>
         )}
-        <button className="primary-btn" type="button" onClick={() => void createUser()}>إضافة المستخدم</button>
+        <div className="form-actions">
+          <button className="primary-btn" type="button" onClick={() => void createUser()}>
+            إضافة المستخدم
+          </button>
+          <button className="secondary-btn" type="button" onClick={() => void refresh()}>
+            تحديث القائمة
+          </button>
+        </div>
       </section>
 
       <section className="purchase-panel">
-        <div className="panel-heading"><div><h2>المستخدمون</h2></div><span className="count-badge">{users.length}</span></div>
-        {loading ? <div className="empty-state">جارٍ التحميل...</div> : (
+        <div className="panel-heading">
+          <div>
+            <h2>المستخدمون</h2>
+            <p>حذف المالك الافتراضي متاح بعد وجود مالك آخر.</p>
+          </div>
+          <span className="count-badge">{users.length}</span>
+        </div>
+        {loading ? (
+          <div className="empty-state">جارٍ التحميل...</div>
+        ) : (
           <div className="table-wrap">
             <table>
               <thead>
@@ -147,8 +240,15 @@ export function AdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <UserRow key={u.id} user={u} actorRole={me?.role || 'USER'} onSave={saveUser} />
+                {users.map((user) => (
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    actorId={me?.id || ''}
+                    ownerCount={ownerCount}
+                    onSave={saveUser}
+                    onDelete={deleteUser}
+                  />
                 ))}
               </tbody>
             </table>
@@ -160,23 +260,48 @@ export function AdminUsers() {
 }
 
 function UserRow({
-  user, actorRole, onSave,
+  user,
+  actorId,
+  ownerCount,
+  onSave,
+  onDelete,
 }: {
   user: OrgUser;
-  actorRole: string;
-  onSave: (u: OrgUser, patch: Partial<{ role: string; permissions: string[]; active: boolean }>) => Promise<void>;
+  actorId: string;
+  ownerCount: number;
+  onSave: (
+    u: OrgUser,
+    patch: Partial<{ role: string; permissions: string[]; active: boolean }>,
+  ) => Promise<void>;
+  onDelete: (u: OrgUser) => Promise<void>;
 }) {
   const isOwner = user.role === 'OWNER';
   const [localPerms, setLocalPerms] = useState<string[]>(user.permissions);
-  useEffect(() => { setLocalPerms(user.permissions); }, [user.permissions]);
+  useEffect(() => {
+    setLocalPerms(user.permissions);
+  }, [user.permissions]);
 
   function toggle(p: string) {
-    setLocalPerms((old) => old.includes(p) ? old.filter((x) => x !== p) : [...old, p]);
+    setLocalPerms((old) => (old.includes(p) ? old.filter((x) => x !== p) : [...old, p]));
   }
+
+  const canDelete = !(isOwner && ownerCount <= 1);
 
   return (
     <tr>
-      <td>{user.fullName}</td>
+      <td>
+        {user.fullName}
+        {user.id === actorId ? (
+          <span className="tag synced" style={{ marginInlineStart: 6 }}>
+            أنت
+          </span>
+        ) : null}
+        {user.email === 'admin@maktaba.local' ? (
+          <span className="tag local" style={{ marginInlineStart: 6 }}>
+            افتراضي
+          </span>
+        ) : null}
+      </td>
       <td dir="ltr">{user.email}</td>
       <td>{user.role === 'OWNER' ? 'مالك' : user.role === 'ADMIN' ? 'أدمن' : 'مستخدم'}</td>
       <td>
@@ -194,27 +319,50 @@ function UserRow({
         )}
       </td>
       <td>{user.active ? 'نشط' : 'معطّل'}</td>
-      <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {!isOwner && user.role === 'USER' && (
-          <button className="secondary-btn small" type="button" onClick={() => void onSave(user, { permissions: localPerms })}>
-            حفظ الصلاحيات
-          </button>
-        )}
-        {!isOwner && actorRole === 'OWNER' && user.role === 'USER' && (
-          <button className="secondary-btn small" type="button" onClick={() => void onSave(user, { role: 'ADMIN', permissions: [...ALL_PERMISSIONS] })}>
-            ترقية لأدمن
-          </button>
-        )}
-        {!isOwner && actorRole === 'OWNER' && user.role === 'ADMIN' && (
-          <button className="secondary-btn small" type="button" onClick={() => void onSave(user, { role: 'USER', permissions: localPerms.length ? localPerms : ['sales'] })}>
-            تحويل لمستخدم
-          </button>
-        )}
-        {!isOwner && (
-          <button className="secondary-btn small" type="button" onClick={() => void onSave(user, { active: !user.active })}>
-            {user.active ? 'تعطيل' : 'تفعيل'}
-          </button>
-        )}
+      <td>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {!isOwner && user.role === 'USER' && (
+            <button
+              className="secondary-btn small"
+              type="button"
+              onClick={() => void onSave(user, { permissions: localPerms })}
+            >
+              حفظ الصلاحيات
+            </button>
+          )}
+          {!isOwner && user.role === 'USER' && (
+            <button
+              className="secondary-btn small"
+              type="button"
+              onClick={() => void onSave(user, { role: 'ADMIN', permissions: [...ALL_PERMISSIONS] })}
+            >
+              ترقية لأدمن
+            </button>
+          )}
+          {!isOwner && user.role === 'ADMIN' && (
+            <button
+              className="secondary-btn small"
+              type="button"
+              onClick={() => void onSave(user, { role: 'USER', permissions: localPerms.length ? localPerms : ['sales'] })}
+            >
+              تحويل لمستخدم
+            </button>
+          )}
+          {!isOwner && (
+            <button
+              className="secondary-btn small"
+              type="button"
+              onClick={() => void onSave(user, { active: !user.active })}
+            >
+              {user.active ? 'تعطيل' : 'تفعيل'}
+            </button>
+          )}
+          {canDelete && (
+            <button className="danger-outline-btn" type="button" onClick={() => void onDelete(user)}>
+              حذف
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );
