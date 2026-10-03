@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest, getToken } from '../data/api';
 import { ProductPriceReport } from './ProductPriceReport';
+import { IconCart, IconReceipt, IconWallet, IconTag, IconRefresh, IconPackage } from './Icons';
 
 type Supplier = { id: string; name: string; phone?: string | null };
 type InvoiceItem = {
@@ -571,24 +572,61 @@ export function Purchases() {
         <div>
           <span className="eyebrow">العمليات</span>
           <h1>المشتريات</h1>
-          <p>فواتير الوارد، الدفعات، المرتجعات، وتقارير الأسعار — مرتبطة بالمخزون فور الحفظ.</p>
+          <p>فواتير الوارد · الدفعات · المرتجعات · تاريخ الأسعار</p>
         </div>
-        <button className="secondary-btn" type="button" onClick={() => void refresh()}>تحديث</button>
+        <button className="secondary-btn" type="button" onClick={() => void refresh()}>
+          <IconRefresh size={16} />
+          <span>تحديث</span>
+        </button>
       </div>
 
-      <div className="stat-cards">
-        <div className="stat-card"><div className="label">فواتير الوارد</div><div className="value">{purchaseStats.invoices}</div></div>
-        <div className="stat-card"><div className="label">الموردون</div><div className="value">{purchaseStats.suppliers}</div></div>
-        <div className="stat-card"><div className="label">الدفعات</div><div className="value">{purchaseStats.payments}</div></div>
-        <div className="stat-card"><div className="label">المرتجعات</div><div className="value">{purchaseStats.returns}</div></div>
+      <div className="pur-stats">
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconReceipt size={18} /></span>
+          <div>
+            <div className="label">فواتير الوارد</div>
+            <div className="value">{purchaseStats.invoices}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconCart size={18} /></span>
+          <div>
+            <div className="label">الموردون</div>
+            <div className="value">{purchaseStats.suppliers}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconWallet size={18} /></span>
+          <div>
+            <div className="label">الدفعات</div>
+            <div className="value">{purchaseStats.payments}</div>
+          </div>
+        </div>
+        <div className="pur-stat">
+          <span className="pur-stat-icon"><IconPackage size={18} /></span>
+          <div>
+            <div className="label">المرتجعات</div>
+            <div className="value">{purchaseStats.returns}</div>
+          </div>
+        </div>
       </div>
 
-      <div className="page-tabs" role="tablist">
-        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>فاتورة وارد</button>
-        <button type="button" className={pageTab === 'payments' ? 'active' : ''} onClick={() => setPageTab('payments')}>دفعات الموردين</button>
-        <button type="button" className={pageTab === 'returns' ? 'active' : ''} onClick={() => setPageTab('returns')}>مرتجع</button>
-        <button type="button" className={pageTab === 'report' ? 'active' : ''} onClick={() => setPageTab('report')}>تقرير منتج</button>
-        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>سجل الفواتير</button>
+      <div className="pur-tabs" role="tablist">
+        <button type="button" className={pageTab === 'invoice' ? 'active' : ''} onClick={() => setPageTab('invoice')}>
+          <IconReceipt size={16} /><span>فاتورة وارد</span>
+        </button>
+        <button type="button" className={pageTab === 'payments' ? 'active' : ''} onClick={() => setPageTab('payments')}>
+          <IconWallet size={16} /><span>دفعات الموردين</span>
+        </button>
+        <button type="button" className={pageTab === 'returns' ? 'active' : ''} onClick={() => setPageTab('returns')}>
+          <IconPackage size={16} /><span>مرتجع</span>
+        </button>
+        <button type="button" className={pageTab === 'report' ? 'active' : ''} onClick={() => setPageTab('report')}>
+          <IconTag size={16} /><span>تقرير منتج</span>
+        </button>
+        <button type="button" className={pageTab === 'history' ? 'active' : ''} onClick={() => setPageTab('history')}>
+          <IconCart size={16} /><span>سجل الفواتير</span>
+        </button>
       </div>
 
       {notice && <div className="purchase-notice" role="status">{notice}</div>}
@@ -596,14 +634,14 @@ export function Purchases() {
       {loading && <div className="empty-state">جارٍ التحميل...</div>}
 
       {pageTab === 'invoice' && (
-      <section className="purchase-panel" id="purchase-invoice-form">
+      <section className="purchase-panel pur-invoice" id="purchase-invoice-form">
         <div className="panel-heading">
           <div>
-            <h2>{editingInvoiceId ? 'تعديل فاتورة وارد' : 'فاتورة وارد'}</h2>
+            <h2>{editingInvoiceId ? 'تعديل فاتورة وارد' : 'فاتورة وارد جديدة'}</h2>
             <p>
               {editingInvoiceId
-                ? 'عدّل البنود ثم احفظ. سيتم تحديث المخزون تلقائيًا.'
-                : 'امسح الباركود لجلب الصنف والمتبقي وسعر البيع. المكسب = سعر البيع − تكلفة القطعة.'}
+                ? 'عدّل البنود ثم احفظ — المخزون يتحدّث تلقائيًا.'
+                : 'امسح الباركود لجلب الصنف · المكسب = سعر البيع − تكلفة القطعة'}
             </p>
           </div>
           {editingInvoiceId && (
@@ -611,27 +649,29 @@ export function Purchases() {
           )}
         </div>
 
-        <div className="sale-meta-row" style={{ gridTemplateColumns: '1.3fr 0.9fr 0.9fr 0.9fr 0.8fr' }}>
-          <label>اسم الشركة / المورد
-            <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} list="supplier-list" placeholder="اكتب أو اختر" />
-          </label>
-          <datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist>
-          <datalist id="product-name-list">{catalog.map((p) => <option key={p.id} value={p.name} />)}</datalist>
-          <label>التاريخ
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label>رقم الفاتورة (اختياري)
-            <input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="تلقائي إن تُرك فارغًا" />
-          </label>
-          <label>نوع الفاتورة
-            <input value="فاتورة وارد" readOnly />
-          </label>
-          <label>المدفوع للمورد الآن
-            <input type="number" min="0" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
-          </label>
+        <div className="pur-section">
+          <div className="pur-section-title">بيانات الفاتورة</div>
+          <div className="pur-meta-grid">
+            <label className="pur-field pur-field--wide">اسم الشركة / المورد
+              <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} list="supplier-list" placeholder="اكتب أو اختر" />
+            </label>
+            <datalist id="supplier-list">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist>
+            <datalist id="product-name-list">{catalog.map((p) => <option key={p.id} value={p.name} />)}</datalist>
+            <label className="pur-field">التاريخ
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+            <label className="pur-field">رقم الفاتورة
+              <input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="تلقائي إن تُرك فارغًا" />
+            </label>
+            <label className="pur-field">المدفوع الآن
+              <input type="number" min="0" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
+            </label>
+          </div>
         </div>
 
-        <div className="sale-lines-wrap" style={{ marginTop: 12 }}>
+        <div className="pur-section">
+          <div className="pur-section-title">بنود الأصناف</div>
+        <div className="sale-lines-wrap pur-lines">
           <table className="sale-lines-table">
             <thead>
               <tr>
@@ -639,11 +679,11 @@ export function Purchases() {
                 <th>الصنف</th>
                 <th>الوحدة</th>
                 <th>الكمية</th>
-                <th>قطع في الوحدة</th>
+                <th>قطع/وحدة</th>
                 <th>سعر الشراء</th>
                 <th>تكلفة القطعة</th>
                 <th>سعر البيع</th>
-                <th>المكسب/قطعة</th>
+                <th>المكسب</th>
                 <th>المتبقي</th>
                 <th>الإجمالي</th>
                 <th></th>
@@ -756,38 +796,45 @@ export function Purchases() {
           </table>
         </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div className="pur-lines-actions">
           <button className="add-line-btn" type="button" onClick={addDraftRow}>+ إضافة صنف</button>
         </div>
 
         {lines.some((l) => l.productName.trim()) && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#5a7076' }}>
+          <div className="pur-hints">
             {lines.filter((l) => l.productName.trim()).map((l) => {
               const h = lastPurchaseHint(l.productName, l.unitLabel);
               return h ? <div key={l.key}>{h}</div> : null;
             })}
           </div>
         )}
+        </div>
 
-        <div className="sale-pay-row">
-          <div className="sale-pay-fields">
+        <div className="pur-footer">
+          <div className="pur-footer-fields">
             <label>خصم (ج)
               <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </label>
-            <label>ملاحظات
-              <input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <label className="pur-field--grow">ملاحظات
+              <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="اختياري" />
             </label>
           </div>
-          <div className="sale-summary">
-            <div>إجمالي الفاتورة: <strong>{money(total)}</strong></div>
+          <div className="pur-footer-summary">
+            <div className="pur-total-box">
+              <span>إجمالي الفاتورة</span>
+              <strong>{money(total)}</strong>
+            </div>
+            <div className="pur-footer-actions">
+              <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>
+                {editingInvoiceId ? 'حفظ التعديل' : 'حفظ الفاتورة'}
+              </button>
+              <button className="primary-btn" type="button" onClick={() => void saveInvoice(true)}>
+                {editingInvoiceId ? 'حفظ وطباعة' : 'حفظ وطباعة'}
+              </button>
+              <button className="secondary-btn" type="button" onClick={printDraftInvoice}>طباعة مسودة</button>
+              <button className="secondary-btn" type="button" onClick={clearDraft}>فاتورة فارغة</button>
+            </div>
           </div>
-        </div>
-
-        <div className="sale-actions">
-          <button className="primary-btn" type="button" onClick={() => void saveInvoice(false)}>{editingInvoiceId ? 'حفظ التعديل' : 'حفظ الفاتورة'}</button>
-          <button className="primary-btn" type="button" onClick={() => void saveInvoice(true)}>{editingInvoiceId ? 'حفظ التعديل وطباعة' : 'حفظ وطباعة'}</button>
-          <button className="secondary-btn" type="button" onClick={printDraftInvoice}>طباعة (حتى قبل الحفظ)</button>
-          <button className="secondary-btn" type="button" onClick={clearDraft}>فاتورة فارغة</button>
         </div>
       </section>
 
