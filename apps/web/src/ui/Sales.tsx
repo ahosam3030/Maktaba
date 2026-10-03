@@ -3,7 +3,17 @@ import { apiRequest } from '../data/api';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 
 type Product = { id: string; name: string; barcode?: string | null; salePrice: number; currentCost: number; stock: number };
-type CartLine = { key: string; productId: string; query: string; unit: string; quantity: string; unitPrice: string };
+type CartLine = {
+  key: string;
+  barcode: string;
+  productId: string;
+  query: string;
+  unit: string;
+  quantity: string;
+  unitPrice: string;
+  cost: string;
+  stock: number | null;
+};
 const SALE_UNITS = ['قطعة', 'ورقة', 'نسخة', 'علبة', 'دستة', 'كرتونة', 'رزمة', 'خدمة'] as const;
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
@@ -20,7 +30,19 @@ function escapeHtml(s: string) {
 export function Sales() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const newLineKey = () => `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const emptyCartLine = (): CartLine => ({
+    key: newLineKey(),
+    barcode: '',
+    productId: '',
+    query: '',
+    unit: 'قطعة',
+    quantity: '1',
+    unitPrice: '',
+    cost: '',
+    stock: null,
+  });
+  const [cart, setCart] = useState<CartLine[]>(() => [emptyCartLine(), emptyCartLine(), emptyCartLine()]);
   const [invoiceNumber, setInvoiceNumber] = useState('1');
   const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerName, setCustomerName] = useState('');
@@ -72,13 +94,12 @@ export function Sales() {
   const paidN = paidAmount.trim() === '' ? total : Math.max(0, Number(paidAmount) || 0);
   const remaining = Math.max(0, total - paidN);
 
-  function newLineKey() {
-    return `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  function addEmptyRow() {
+    setCart((old) => [...old, emptyCartLine()]);
   }
 
-  function addEmptyRow() {
-    setCart((old) => [...old, { key: newLineKey(), productId: '', query: '', unit: 'قطعة', quantity: '1', unitPrice: '' }]);
-    setNotice('');
+  function removeLine(key: string) {
+    setCart((old) => (old.length <= 1 ? [emptyCartLine()] : old.filter((line) => line.key !== key)));
   }
 
   /** مطابقة بالباركود أولًا ثم بالاسم (يفضّل صنف له رصيد) */
@@ -103,28 +124,46 @@ export function Sales() {
 
   function applyProductToLine(line: CartLine, p: Product | undefined, query: string): CartLine {
     if (!p) {
-      return { ...line, productId: '', query };
-    }
-    const stock = Number(p.stock) || 0;
-    if (stock <= 0) {
-      setNotice(`«${p.name}» موجود لكن رصيده صفر. سجّل وارد من المشتريات قبل البيع.`);
-    } else {
-      setNotice(`تم ربط الصنف: ${p.name} (متاح ${stock})`);
+      return { ...line, productId: '', query, barcode: line.barcode, cost: '', stock: null };
     }
     return {
       ...line,
       productId: p.id,
       query: p.name,
-      unitPrice: line.unitPrice !== '' ? line.unitPrice : String(Number(p.salePrice) || 0),
-      quantity: line.quantity && Number(line.quantity) > 0 ? line.quantity : '1',
+      barcode: (p.barcode || line.barcode || '').trim(),
       unit: line.unit || 'قطعة',
+      unitPrice: p.salePrice > 0 ? String(p.salePrice) : line.unitPrice,
+      cost: String(Number(p.currentCost) || 0),
+      stock: Number(p.stock) || 0,
     };
   }
 
   function onProductQueryChange(key: string, value: string) {
     setCart((old) => old.map((line) => {
       if (line.key !== key) return line;
-      return { ...line, query: value, productId: '' };
+      return { ...line, query: value, productId: '', cost: '', stock: null };
+    }));
+  }
+
+  function onBarcodeChange(key: string, value: string) {
+    setCart((old) => old.map((line) => {
+      if (line.key !== key) return line;
+      return { ...line, barcode: value };
+    }));
+  }
+
+  function resolveBarcode(key: string, value?: string) {
+    setCart((old) => old.map((line) => {
+      if (line.key !== key) return line;
+      const text = (value !== undefined ? value : line.barcode).trim();
+      if (!text) return line;
+      const p = findProduct(text);
+      if (!p) {
+        setNotice(`لا يوجد صنف بالباركود «${text}».`);
+        return line;
+      }
+      setNotice(`تم جلب «${p.name}» — المتبقي ${qty(Number(p.stock) || 0)} | سعر البيع ${p.salePrice}`);
+      return applyProductToLine(line, p, text);
     }));
   }
 
@@ -133,10 +172,10 @@ export function Sales() {
       if (line.key !== key) return line;
       const text = value !== undefined ? value : line.query;
       const p = findProduct(text);
-      if (!text.trim()) return { ...line, productId: '', query: '' };
+      if (!text.trim()) return { ...line, productId: '', query: '', cost: '', stock: null };
       if (!p) {
-        setNotice(`لم يُعثر على «${text.trim()}» في المخزون. اكتب الاسم أو امسح الباركود.`);
-        return { ...line, productId: '', query: text };
+        // خدمة حرة بدون صنف مخزون
+        return { ...line, productId: '', query: text, cost: '', stock: null };
       }
       return applyProductToLine(line, p, text);
     }));
@@ -146,12 +185,9 @@ export function Sales() {
     setCart((old) => old.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   }
 
-  function removeLine(key: string) {
-    setCart((old) => old.filter((line) => line.key !== key));
-  }
-
+  
   function resetForm(nextSales?: Sale[]) {
-    setCart([]);
+    setCart([emptyCartLine(), emptyCartLine(), emptyCartLine()]);
     setCustomerName('');
     setDiscount('0');
     setPaidAmount('');
@@ -721,7 +757,7 @@ export function Sales() {
         <div className="panel-heading">
           <div>
             <h2>فاتورة بيع</h2>
-            <p>أضف صفوف الأصناف، حدّد الكمية والسعر، ثم احفظ أو اطبع.</p>
+            <p>امسح الباركود أو اكتب اسم الصنف — يظهر السعر والتكلفة والمكسب والمتبقي تلقائيًا.</p>
           </div>
         </div>
 
@@ -745,10 +781,14 @@ export function Sales() {
           <table className="sale-lines-table">
             <thead>
               <tr>
+                <th>باركود</th>
                 <th>الصنف / الخدمة</th>
                 <th>الوحدة</th>
                 <th>الكمية</th>
-                <th>السعر</th>
+                <th>سعر البيع</th>
+                <th>التكلفة</th>
+                <th>المكسب</th>
+                <th>المتبقي</th>
                 <th>الإجمالي</th>
                 <th></th>
               </tr>
@@ -757,14 +797,38 @@ export function Sales() {
               {cart.map((line) => {
                 const lineTotal = Math.max(0, Number(line.quantity) || 0) * Math.max(0, Number(line.unitPrice) || 0);
                 const matched = products.find((p) => p.id === line.productId);
-                const matchedStock = matched ? Number(matched.stock) || 0 : 0;
+                const stock = line.stock !== null && line.stock !== undefined
+                  ? Number(line.stock)
+                  : (matched ? Number(matched.stock) || 0 : null);
+                const cost = line.cost !== '' ? Number(line.cost) : (matched ? Number(matched.currentCost) || 0 : null);
+                const price = Number(line.unitPrice);
+                const profit = cost !== null && Number.isFinite(price) && line.unitPrice !== ''
+                  ? price - cost
+                  : null;
+                const qtyN = Number(line.quantity) || 0;
+                const overStock = line.productId && stock !== null && qtyN > stock;
                 return (
                   <tr key={line.key}>
                     <td>
                       <input
+                        placeholder="باركود"
+                        value={line.barcode}
+                        onChange={(e) => onBarcodeChange(line.key, e.target.value)}
+                        onBlur={(e) => resolveBarcode(line.key, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            resolveBarcode(line.key, (e.target as HTMLInputElement).value);
+                          }
+                        }}
+                        autoComplete="off"
+                      />
+                    </td>
+                    <td>
+                      <input
                         list={`products-list-${line.key}`}
                         aria-label="الصنف أو الباركود"
-                        placeholder="اكتب الاسم أو امسح الباركود"
+                        placeholder="اسم الصنف أو الخدمة"
                         value={line.query}
                         onChange={(e) => onProductQueryChange(line.key, e.target.value)}
                         onBlur={(e) => resolveProductLine(line.key, e.target.value)}
@@ -777,9 +841,9 @@ export function Sales() {
                         autoComplete="off"
                         style={{
                           borderColor: line.productId
-                            ? (matchedStock > 0 ? '#20a486' : '#d97706')
+                            ? (stock !== null && stock > 0 ? '#20a486' : '#d97706')
                             : (line.query.trim() ? '#e8a0a0' : undefined),
-                          background: line.productId ? (matchedStock > 0 ? '#f0faf6' : '#fff8eb') : undefined,
+                          background: line.productId ? (stock !== null && stock > 0 ? '#f0faf6' : '#fff8eb') : undefined,
                         }}
                       />
                       <datalist id={`products-list-${line.key}`}>
@@ -791,51 +855,46 @@ export function Sales() {
                           />
                         ))}
                       </datalist>
-                      {line.productId && matched && (
-                        <div style={{ fontSize: 11, marginTop: 4, color: matchedStock > 0 ? '#0f766e' : '#b45309' }}>
-                          {matchedStock > 0 ? `✓ بضاعة · متاح ${qty(matchedStock)}` : `⚠ بضاعة · الرصيد صفر`}
-                        </div>
-                      )}
-                      {!line.productId && line.query.trim() && (
-                        <div style={{ fontSize: 11, marginTop: 4, color: '#355a8c' }}>
-                          خدمة / بند حر (بدون خصم من المخزون)
-                        </div>
-                      )}
                     </td>
                     <td>
-                      <select
-                        aria-label="الوحدة"
-                        value={line.unit || 'قطعة'}
-                        onChange={(e) => updateLine(line.key, { unit: e.target.value })}
-                      >
-                        {SALE_UNITS.map((u) => (
-                          <option key={u} value={u}>{u}</option>
-                        ))}
+                      <select value={line.unit} onChange={(e) => updateLine(line.key, { unit: e.target.value })}>
+                        {SALE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </td>
                     <td>
                       <input
-                        aria-label="الكمية"
                         type="number"
                         min="0"
-                        step="1"
+                        step="0.001"
                         value={line.quantity}
                         onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                        style={{ borderColor: overStock ? '#d6455d' : undefined }}
+                        title={overStock ? 'الكمية أكبر من المتاح' : undefined}
                       />
                     </td>
                     <td>
                       <input
-                        aria-label="السعر"
                         type="number"
                         min="0"
                         step="0.01"
                         value={line.unitPrice}
-                        onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
                         placeholder="0"
+                        onChange={(e) => updateLine(line.key, { unitPrice: e.target.value })}
                       />
                     </td>
+                    <td>{cost === null || !Number.isFinite(cost) ? '—' : cost.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}</td>
+                    <td style={{ color: profit === null ? undefined : profit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 600 }}>
+                      {profit === null ? '—' : profit.toLocaleString('ar-EG', { maximumFractionDigits: 3 })}
+                    </td>
+                    <td title="الكمية المتاحة في المخزون">
+                      {stock === null ? '—' : (
+                        <span style={{ color: stock <= 0 ? '#b42318' : '#0a7a4b', fontWeight: 600 }}>
+                          {qty(stock)}
+                        </span>
+                      )}
+                    </td>
                     <td>
-                      <span className="line-total">
+                      <span style={{ fontWeight: 700 }}>
                         {lineTotal ? lineTotal.toLocaleString('ar-EG', { maximumFractionDigits: 2 }) : '0'}
                       </span>
                     </td>
@@ -847,9 +906,7 @@ export function Sales() {
               })}
             </tbody>
           </table>
-          {cart.length === 0 && (
-            <div className="empty-state">اضغط «+ إضافة صنف» لإضافة صف في الفاتورة.</div>
-          )}
+
         </div>
 
         {products.length === 0 && (
