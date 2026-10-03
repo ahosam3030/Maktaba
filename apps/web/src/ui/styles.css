@@ -2235,3 +2235,56 @@ html,body,input,button,select,textarea,table{
   border-radius:18px;
   box-shadow:0 6px 20px rgba(15,42,48,.05);
 }
+
+/* Full-width product management when inside Settings */
+.purchases-page--embedded{
+  max-width:none !important;
+  width:100% !important;
+  margin:0 !important;
+  padding-bottom:8px !important;
+}
+.purchases-page--embedded .product-form-card,
+.purchases-page--embedded .purchase-panel{
+  width:100%;
+  max-width:none;
+}
+.purchases-page--embedded .settings-form-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px 20px;
+}
+.purchases-page--embedded .pur-field input,
+.purchases-page--embedded .pur-field select,
+.purchases-page--embedded .pur-field textarea{
+  width:100%;
+  min-height:44px;
+  font-size:14px;
+  padding:11px 14px;
+}
+.purchases-page--embedded .pur-stats{
+  width:100%;
+}
+.purchases-page--embedded .products-suite-head{
+  width:100%;
+}
+.products-suite{
+  width:100%;
+  max-width:none;
+}
+.products-suite .units-panel,
+.products-suite .purchase-panel{
+  width:100%;
+  max-width:none;
+}
+.settings-tab-panel{
+  width:100%;
+  max-width:none;
+}
+.settings-page.purchases-page{
+  max-width:none;
+  width:100%;
+}
+@media (max-width:700px){
+  .purchases-page--embedded .settings-form-grid{
+    grid-template-columns:1fr;
+  }
+}

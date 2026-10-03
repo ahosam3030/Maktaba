@@ -242,7 +242,7 @@ export function Inventory({ embedded = false }: { embedded?: boolean } = {}) {
   }
 
   return (
-    <div className="purchases-page">
+    <div className={`purchases-page${embedded ? " purchases-page--embedded" : ""}`}>
       {!embedded && (
       <div className="purchase-title">
         <div>
