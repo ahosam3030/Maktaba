@@ -25,6 +25,17 @@ function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
 }
 
+
+type InventoryProduct = {
+    id: string;
+    name: string;
+    barcode: string | null;
+    unit: string;
+    piecesPerPack: number;
+    currentCost: number;
+    salePrice: number;
+    stock: number;
+  };
 export function Purchases() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -34,12 +45,6 @@ export function Purchases() {
   const [loading, setLoading] = useState(true);
 
   const [scanMode, setScanMode] = useState(false);
-  useEffect(() => {
-    check();
-    const id = window.setInterval(check, 1500);
-    window.addEventListener('resize', check);
-    return () => { window.clearInterval(id); window.removeEventListener('resize', check); };
-  }, []);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [pageTab, setPageTab] = useState<'invoice' | 'payments' | 'returns' | 'report' | 'history'>('invoice');
@@ -62,18 +67,7 @@ export function Purchases() {
     salePrice: string;
     productId?: string;
     stock?: number | null;
-  };
-  type InventoryProduct = {
-    id: string;
-    name: string;
-    barcode: string | null;
-    unit: string;
-    piecesPerPack: number;
-    currentCost: number;
-    salePrice: number;
-    stock: number;
-  };
-  const newDraftKey = () => `P-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  };  const newDraftKey = () => `P-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const emptyDraftLine = (): DraftLine => ({
     key: newDraftKey(),
     barcode: '',

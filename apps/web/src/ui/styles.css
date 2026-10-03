@@ -4079,3 +4079,55 @@ aside.sidebar.sidebar--collapsed {
     justify-content: center;
   }
 }
+
+
+/* ========== Density fix: less empty space ========== */
+.side-nav button.active,
+.side-nav a.active {
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+}
+.side-nav {
+  gap: 1px !important;
+}
+.nav-group-label {
+  padding: 8px 10px 3px !important;
+  margin: 0 !important;
+}
+.purchases-page,
+.sales-page,
+.inventory-page,
+.settings-page,
+.accounting-page,
+.reports-page,
+.printing-page {
+  gap: 10px !important;
+}
+.pur-stats {
+  gap: 10px !important;
+  margin-bottom: 2px !important;
+}
+.pur-stat {
+  min-height: 0 !important;
+  padding: 12px 14px !important;
+}
+.purchase-panel,
+.panel,
+.settings-tab-panel {
+  padding: 14px 16px !important;
+}
+.panel-heading {
+  margin-bottom: 10px !important;
+  padding-bottom: 8px !important;
+}
+.pur-section-title {
+  margin-bottom: 8px !important;
+}
+.main-content.page-stage {
+  padding: 16px 20px 24px !important;
+}
+.topbar {
+  margin-bottom: 12px !important;
+  padding-bottom: 10px !important;
+}
