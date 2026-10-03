@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { apiRequest, ALL_PERMISSIONS, getStoredUser, clearSession, type Permission } from '../data/api';
+import {
+  apiRequest,
+  ALL_PERMISSIONS,
+  getStoredUser,
+  getStoredOrganization,
+  clearSession,
+  type Permission,
+} from '../data/api';
 
 type OrgUser = {
   id: string;
@@ -148,6 +155,8 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
   }
 
   const ownerCount = users.filter((u) => u.role === 'OWNER').length;
+  const org = getStoredOrganization();
+  const hasDefaultSeedUser = users.some((u) => u.email === 'admin@maktaba.local');
 
   return (
     <div className={embedded ? '' : 'purchases-page'}>
@@ -172,26 +181,38 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
       )}
 
       <div className="settings-hint">
-        <strong>معاني الأدوار:</strong> <em>مالك</em> = صاحب المكتبة (كل الصلاحيات + الحسابات + حذف المكتبة).{' '}
-        <em>أدمن</em> = كل أقسام العمل دون حذف المكتبة أو إنشاء ملاك. <em>مستخدم</em> = صلاحيات تختارها أنت فقط.
-        المكتبة واحدة مرتبطة بكل الحسابات؛ لا يوجد مستخدم بلا مكتبة.
+        <strong>الربط:</strong> كل حساب أدناه تابع لمكتبة واحدة فقط
+        {org?.name ? (
+          <>
+            {' '}
+            — <em>{org.name}</em>
+            {org.slug ? (
+              <>
+                {' '}
+                (<code dir="ltr">{org.slug}</code>)
+              </>
+            ) : null}
+          </>
+        ) : null}
+        . لا يمكن إنشاء مستخدم بلا مكتبة، ولا نقل حساب بين مكتبات من هذه الشاشة.
       </div>
       <div className="settings-hint">
-        <strong>استبدال الحساب الافتراضي:</strong> أنشئ حساب مالك ببياناتك الحقيقية، ثم احذف حساب
-        <code dir="ltr">admin@maktaba.local</code> من الجدول. يجب أن يبقى مالك واحد على الأقل في المكتبة.
-        {ownerCount > 0 && (
-          <span>
-            {' '}
-            (عدد الملاك حاليًا: {ownerCount})
-          </span>
-        )}
+        <strong>الأدوار:</strong> <em>مالك</em> = صاحب المكتبة (حسابات + حذف المكتبة). <em>أدمن</em> = كل
+        أقسام العمل دون حذف المكتبة. <em>مستخدم</em> = صلاحيات تختارها أنت.
+        {ownerCount > 0 && <> (عدد الملاك: {ownerCount})</>}
       </div>
+      {hasDefaultSeedUser && (
+        <div className="settings-hint">
+          <strong>حساب تهيئة:</strong> وُجد <code dir="ltr">admin@maktaba.local</code> — أنشئ مالكًا
+          ببياناتك ثم احذفه من الجدول (يُشترط بقاء مالك واحد على الأقل).
+        </div>
+      )}
 
       <section className="purchase-panel" style={{ marginTop: 12 }}>
         <div className="panel-heading">
           <div>
-            <h2>مستخدم جديد</h2>
-            <p>المالك / أدمن / مستخدم عادي مع صلاحيات محددة.</p>
+            <h2>مستخدم جديد في هذه المكتبة</h2>
+            <p>يُنشأ تلقائيًا تحت مكتبتك الحالية على الخادم.</p>
           </div>
         </div>
         <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}>
