@@ -55,7 +55,6 @@ type Summary = {
 };
 
 type SeriesRow = { key: string; label: string; salesNet: number; cogs: number; profit: number; count: number };
-
 type TabId = 'overview' | 'prices' | 'stock';
 
 function today() {
@@ -69,27 +68,68 @@ function startOfYear() {
   return new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
 }
 
+function formatRange(from: string, to: string) {
+  try {
+    const f = new Date(from + 'T12:00:00').toLocaleDateString('ar-EG', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const t = new Date(to + 'T12:00:00').toLocaleDateString('ar-EG', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    return `${f} — ${t}`;
+  } catch {
+    return `${from} — ${to}`;
+  }
+}
+
 function Kpi({
   label,
   value,
   hint,
-  tone,
+  tone = 'neutral',
+  accent,
 }: {
   label: string;
   value: string;
   hint?: string;
-  tone?: 'ok' | 'warn' | 'danger' | 'neutral';
+  tone?: 'ok' | 'warn' | 'danger' | 'neutral' | 'info';
+  accent?: boolean;
 }) {
-  const color =
-    tone === 'ok' ? '#0a7a4b' : tone === 'danger' ? '#b42318' : tone === 'warn' ? '#b45309' : '#183b42';
   return (
-    <article className="stat-card">
-      <div className="label">{label}</div>
-      <div className="value" style={{ color }}>
-        {value}
-      </div>
-      {hint ? <div className="hint">{hint}</div> : null}
+    <article className={`rpt-kpi rpt-kpi--${tone}${accent ? ' rpt-kpi--accent' : ''}`}>
+      <div className="rpt-kpi-label">{label}</div>
+      <div className="rpt-kpi-value">{value}</div>
+      {hint ? <div className="rpt-kpi-hint">{hint}</div> : null}
     </article>
+  );
+}
+
+function ProfitBars({ series }: { series: SeriesRow[] }) {
+  if (!series.length) return null;
+  const maxAbs = Math.max(...series.map((s) => Math.abs(s.profit)), 1);
+  const show = series.slice(-14);
+  return (
+    <div className="rpt-bars" role="img" aria-label="رسم أرباح الفترة">
+      {show.map((row) => {
+        const h = Math.max(4, (Math.abs(row.profit) / maxAbs) * 100);
+        const up = row.profit >= 0;
+        return (
+          <div key={row.key} className="rpt-bar-col" title={`${row.label}: ${money(row.profit)}`}>
+            <div className="rpt-bar-track">
+              <div
+                className={`rpt-bar-fill ${up ? 'up' : 'down'}`}
+                style={{ height: `${h}%` }}
+              />
+            </div>
+            <span className="rpt-bar-label">{row.label.replace(/^.*-/, '').slice(-5)}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -157,19 +197,18 @@ export function Reports() {
     }
   }
 
-  const periodLabel =
-    from && to ? `من ${from} إلى ${to}` : 'كل الفترات';
+  const totalProfit = useMemo(() => series.reduce((s, r) => s + r.profit, 0), [series]);
 
   return (
-    <div className="purchases-page">
+    <div className="purchases-page reports-page">
       <div className="purchase-title">
         <div>
           <span className="eyebrow">لوحة مالية</span>
           <h1>التقارير</h1>
-          <p>ملخص رأس المال والأرباح، تاريخ أسعار الشراء، وأرصدة المخزون — من بيانات الخادم.</p>
+          <p>رأس المال · الأرباح · أسعار الشراء · المخزون</p>
         </div>
         <button className="secondary-btn" type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? 'جارٍ التحديث...' : 'تحديث'}
+          {loading ? 'جارٍ التحديث...' : 'تحديث البيانات'}
         </button>
       </div>
 
@@ -179,95 +218,112 @@ export function Reports() {
         </div>
       )}
 
-      <div className="page-tabs" role="tablist">
-        <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
-          الملخص المالي
-        </button>
-        <button type="button" className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>
-          تاريخ الأسعار
-        </button>
-        <button type="button" className={tab === 'stock' ? 'active' : ''} onClick={() => setTab('stock')}>
-          أرصدة المخزون
-        </button>
+      <div className="rpt-tabs" role="tablist">
+        {(
+          [
+            { id: 'overview' as const, label: 'الملخص المالي', desc: 'رأس مال وأرباح' },
+            { id: 'prices' as const, label: 'تاريخ الأسعار', desc: 'مقارنة الموردين' },
+            { id: 'stock' as const, label: 'أرصدة المخزون', desc: 'كميات وقيم' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={tab === t.id ? 'active' : ''}
+            onClick={() => setTab(t.id)}
+          >
+            <strong>{t.label}</strong>
+            <span>{t.desc}</span>
+          </button>
+        ))}
       </div>
 
-      {/* ——— الملخص المالي ——— */}
       {tab === 'overview' && (
         <>
-          <section className="purchase-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>الفترة الزمنية</h2>
-                <p>تُحسب المبيعات والأرباح والمشتريات ضمن هذه التواريخ. رأس المال والمخزون يعكسان الوضع الحالي.</p>
-              </div>
-              <span className="count-badge">{periodLabel}</span>
-            </div>
-            <div className="filter-bar">
+          <section className="rpt-toolbar">
+            <div className="rpt-toolbar-fields">
               <label>
-                من تاريخ
+                من
                 <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
               </label>
               <label>
-                إلى تاريخ
+                إلى
                 <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
               </label>
               <label>
-                تجميع الأرباح
-                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as 'day' | 'month' | 'year')}>
+                التجميع
+                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}>
                   <option value="day">يومي</option>
                   <option value="month">شهري</option>
                   <option value="year">سنوي</option>
                 </select>
               </label>
-              <div className="filter-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="secondary-btn small" type="button" onClick={() => preset('today')}>
-                  اليوم
-                </button>
-                <button className="secondary-btn small" type="button" onClick={() => preset('month')}>
-                  هذا الشهر
-                </button>
-                <button className="secondary-btn small" type="button" onClick={() => preset('year')}>
-                  هذه السنة
-                </button>
-              </div>
             </div>
+            <div className="rpt-toolbar-presets">
+              <button type="button" className={from === today() && to === today() ? 'active' : ''} onClick={() => preset('today')}>
+                اليوم
+              </button>
+              <button type="button" className={from === startOfMonth() && to === today() ? 'active' : ''} onClick={() => preset('month')}>
+                هذا الشهر
+              </button>
+              <button type="button" className={from === startOfYear() && to === today() ? 'active' : ''} onClick={() => preset('year')}>
+                هذه السنة
+              </button>
+            </div>
+            <div className="rpt-toolbar-range">{formatRange(from, to)}</div>
           </section>
 
           {loading && <div className="empty-state">جارٍ حساب التقارير...</div>}
 
           {summary && !loading && (
             <>
-              <h3 className="reports-section-title">رأس المال (الوضع الحالي)</h3>
-              <div className="stat-cards">
-                <Kpi
-                  label="رأس المال المتبقي (عامل)"
-                  value={money(summary.capital.remaining)}
-                  hint="نقد + مخزون بالتكلفة − دين الموردين"
-                  tone={summary.capital.remaining >= 0 ? 'ok' : 'danger'}
-                />
-                <Kpi label="رأس المال في البضاعة" value={money(summary.capital.inStock)} hint="قيمة الأرصدة بسعر التكلفة" />
-                <Kpi label="رصيد الخزينة" value={money(summary.capital.liquid)} hint="إيرادات − مصروفات (كل الفترات)" />
-                <Kpi
-                  label="مديونية الموردين"
-                  value={money(summary.capital.supplierDebt)}
-                  hint="متبقي على فواتير الوارد"
-                  tone={summary.capital.supplierDebt > 0 ? 'warn' : 'neutral'}
-                />
-              </div>
+              <section className="rpt-hero">
+                <div className="rpt-hero-main">
+                  <span>رأس المال المتبقي (عامل)</span>
+                  <strong className={summary.capital.remaining >= 0 ? 'ok' : 'bad'}>
+                    {money(summary.capital.remaining)}
+                  </strong>
+                  <p>نقد + مخزون بالتكلفة − مديونية الموردين</p>
+                </div>
+                <div className="rpt-hero-side">
+                  <div>
+                    <span>في البضاعة</span>
+                    <b>{money(summary.capital.inStock)}</b>
+                  </div>
+                  <div>
+                    <span>الخزينة</span>
+                    <b>{money(summary.capital.liquid)}</b>
+                  </div>
+                  <div>
+                    <span>دين الموردين</span>
+                    <b className={summary.capital.supplierDebt > 0 ? 'warn' : ''}>
+                      {money(summary.capital.supplierDebt)}
+                    </b>
+                  </div>
+                </div>
+              </section>
 
-              <h3 className="reports-section-title">أداء الفترة المحددة</h3>
-              <div className="stat-cards">
+              <div className="rpt-section-head">
+                <h3>أداء الفترة</h3>
+                <span>{formatRange(from, to)}</span>
+              </div>
+              <div className="rpt-kpi-grid">
                 <Kpi
                   label="صافي المبيعات"
                   value={money(summary.sales.net)}
                   hint={`${summary.sales.count} فاتورة · محصّل ${money(summary.sales.paid)}`}
+                  tone="info"
+                  accent
                 />
-                <Kpi label="تكلفة البضاعة المباعة" value={money(summary.sales.cogs)} hint="حسب تكلفة الأصناف وقت البيع" />
+                <Kpi label="تكلفة البضاعة المباعة" value={money(summary.sales.cogs)} hint="حسب تكلفة الأصناف" />
                 <Kpi
                   label="مجمل الربح"
                   value={money(summary.sales.grossProfit)}
                   hint={`هامش ${pct(summary.sales.grossMarginPct)}`}
                   tone={summary.sales.grossProfit >= 0 ? 'ok' : 'danger'}
+                  accent
                 />
                 <Kpi
                   label="مشتريات الفترة"
@@ -276,28 +332,29 @@ export function Reports() {
                 />
               </div>
 
-              <div className="stat-cards">
-                <Kpi label="إيرادات الخزينة (الفترة)" value={money(summary.cash.income)} tone="ok" />
-                <Kpi label="مصروفات الخزينة (الفترة)" value={money(summary.cash.expense)} tone="danger" />
+              <div className="rpt-kpi-grid rpt-kpi-grid--3">
+                <Kpi label="إيرادات الخزينة" value={money(summary.cash.income)} tone="ok" />
+                <Kpi label="مصروفات الخزينة" value={money(summary.cash.expense)} tone="danger" />
                 <Kpi
                   label="صافي حركة الخزينة"
                   value={money(summary.cash.net)}
                   tone={summary.cash.net >= 0 ? 'ok' : 'danger'}
                 />
-                <Kpi
-                  label="مخزون — أصناف / وحدات"
-                  value={`${summary.inventory.skusInStock} / ${qty(summary.inventory.unitsInStock)}`}
-                  hint={`قيمة بيع تقديرية ${money(summary.inventory.valueAtSale)}`}
-                />
               </div>
 
-              <section className="purchase-panel">
+              <section className="purchase-panel rpt-panel">
                 <div className="panel-heading">
                   <div>
-                    <h2>تسلسل الأرباح ({groupBy === 'day' ? 'يومي' : groupBy === 'month' ? 'شهري' : 'سنوي'})</h2>
-                    <p>صافي المبيعات − تكلفة البضاعة المباعة لكل فترة فرعية.</p>
+                    <h2>
+                      تسلسل الأرباح{' '}
+                      <small style={{ fontWeight: 500, color: '#7a8e93' }}>
+                        ({groupBy === 'day' ? 'يومي' : groupBy === 'month' ? 'شهري' : 'سنوي'})
+                      </small>
+                    </h2>
+                    <p>صافي المبيعات − تكلفة البضاعة · إجمالي الفترة: {money(totalProfit)}</p>
                   </div>
                 </div>
+                <ProfitBars series={series} />
                 <div className="table-wrap">
                   <table>
                     <thead>
@@ -316,9 +373,7 @@ export function Reports() {
                           <td>{row.count}</td>
                           <td>{money(row.salesNet)}</td>
                           <td>{money(row.cogs)}</td>
-                          <td style={{ color: row.profit >= 0 ? '#0a7a4b' : '#b42318', fontWeight: 700 }}>
-                            {money(row.profit)}
-                          </td>
+                          <td className={row.profit >= 0 ? 'num-ok' : 'num-bad'}>{money(row.profit)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -331,16 +386,14 @@ export function Reports() {
         </>
       )}
 
-      {/* ——— تاريخ الأسعار ——— */}
       {tab === 'prices' && <ProductPriceReport />}
 
-      {/* ——— المخزون ——— */}
       {tab === 'stock' && (
-        <section className="purchase-panel">
+        <section className="purchase-panel rpt-panel">
           <div className="panel-heading">
             <div>
               <h2>أرصدة المخزون</h2>
-              <p>الرصيد = وارد − مرتجعات − مبيعات ± تسويات. القيمة = الرصيد × تكلفة القطعة.</p>
+              <p>وارد − مرتجعات − مبيعات ± تسويات</p>
             </div>
             {summary && (
               <span className="count-badge">
@@ -353,13 +406,14 @@ export function Reports() {
 
           {!loading && summary && (
             <>
-              <div className="stat-cards" style={{ marginBottom: 16 }}>
+              <div className="rpt-kpi-grid rpt-kpi-grid--3">
                 <Kpi label="قيمة بالتكلفة" value={money(summary.inventory.valueAtCost)} />
-                <Kpi label="قيمة بسعر البيع" value={money(summary.inventory.valueAtSale)} />
+                <Kpi label="قيمة بسعر البيع" value={money(summary.inventory.valueAtSale)} tone="info" />
                 <Kpi
-                  label="ربح محتمل"
+                  label="ربح محتمل عند البيع"
                   value={money(summary.inventory.potentialProfit)}
                   tone={summary.inventory.potentialProfit >= 0 ? 'ok' : 'danger'}
+                  accent
                 />
               </div>
 
@@ -410,9 +464,7 @@ export function Reports() {
                         <td>{qty(i.purchased)}</td>
                         <td>{qty(i.sold)}</td>
                         <td>{qty(i.returned)}</td>
-                        <td style={{ fontWeight: 700, color: i.stock <= 0 ? '#b42318' : '#0a7a4b' }}>
-                          {qty(i.stock)}
-                        </td>
+                        <td className={i.stock <= 0 ? 'num-bad' : 'num-ok'}>{qty(i.stock)}</td>
                         <td>{money(i.currentCost)}</td>
                         <td>{money(i.valueAtCost)}</td>
                         <td>{money(i.salePrice)}</td>
