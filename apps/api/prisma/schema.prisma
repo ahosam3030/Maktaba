@@ -24,6 +24,8 @@ model Organization {
   stockMovements   StockMovement[]
   sales            Sale[]
   cashTransactions CashTransaction[]
+  services         Service[]
+  serviceReceipts  ServiceReceipt[]
 }
 
 model Branch {
@@ -52,6 +54,7 @@ model User {
   updatedAt        DateTime          @updatedAt
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   cashTransactions CashTransaction[]
+  serviceReceipts  ServiceReceipt[]
 
   @@index([organizationId])
 }
@@ -268,4 +271,56 @@ model CashTransaction {
   @@index([organizationId, date])
   @@index([organizationId, kind, date])
   @@index([organizationId, category])
+}
+
+
+model Service {
+  id             String           @id @default(cuid())
+  organizationId String
+  name           String
+  unitPrice      Decimal          @default(0) @db.Decimal(12, 3)
+  chargeUnit     String           @default("job")
+  active         Boolean          @default(true)
+  sortOrder      Int              @default(0)
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  receipts       ServiceReceipt[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active])
+}
+
+model ServiceReceipt {
+  id                String       @id @default(cuid())
+  organizationId    String
+  userId            String
+  serviceId         String?
+  receiptNo         String
+  receiptDate       DateTime     @default(now())
+  customerName      String?
+  serviceName       String
+  description       String?
+  paperSize         String?
+  colorMode         String?
+  pages             Int          @default(1)
+  copies            Int          @default(1)
+  sides             String?
+  unitPrice         Decimal      @default(0) @db.Decimal(12, 3)
+  extraFees         Decimal      @default(0) @db.Decimal(12, 3)
+  discount          Decimal      @default(0) @db.Decimal(12, 3)
+  total             Decimal      @default(0) @db.Decimal(12, 3)
+  paidAmount        Decimal      @default(0) @db.Decimal(12, 3)
+  notes             String?
+  cashTransactionId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  service           Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, receiptNo])
+  @@index([organizationId, receiptDate])
+  @@index([organizationId, serviceId])
 }

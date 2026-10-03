@@ -12,6 +12,7 @@ import { SalesController } from './sales.controller';
 import { AccountingController } from './accounting.controller';
 import { UsersController } from './users.controller';
 import { ReportsController } from './reports.controller';
+import { ServicesController, ServiceReceiptsController } from './services.controller';
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret && process.env.NODE_ENV === 'production') {
@@ -38,6 +39,8 @@ if (!jwtSecret && process.env.NODE_ENV === 'production') {
     InventoryController,
     SalesController,
     AccountingController,
+    ServicesController,
+    ServiceReceiptsController,
   ],
   providers: [AuthService, JwtAuthGuard, PermissionsGuard],
 })
