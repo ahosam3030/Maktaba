@@ -130,6 +130,37 @@ export function Settings() {
     setNotice('');
   }
 
+  function addUnitFromInput() {
+    const n = newUnit.trim();
+    if (!n) {
+      setNotice('اكتب اسم الوحدة أولًا.');
+      return;
+    }
+    const list = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
+    if (list.includes(n)) {
+      setNotice(`«${n}» موجودة بالفعل.`);
+      setNewUnit('');
+      return;
+    }
+    const next = [...list, n];
+    setUnitsText(next.join('\n'));
+    saveSaleUnits(next);
+    setNewUnit('');
+    setNotice(`تمت إضافة «${n}».`);
+  }
+
+  function removeUnit(name: string) {
+    const next = unitsText
+      .split(/\n/)
+      .map((x) => x.trim())
+      .filter((x) => x && x !== name);
+    setUnitsText(next.join('\n'));
+    saveSaleUnits(next);
+    setNotice(`تم حذف «${name}».`);
+  }
+
+  const unitList = unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean);
+
   const roleLabel =
     sessionUser?.role === 'OWNER' ? 'مالك' : sessionUser?.role === 'ADMIN' ? 'أدمن' : 'مستخدم';
 
@@ -213,7 +244,7 @@ export function Settings() {
                 <p>تظهر تلقائيًا في قائمة «الوحدة» بفاتورة البيع. أضف أو احذف في ثوانٍ.</p>
               </div>
               <div className="units-hero-badge">
-                {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length}
+                {unitList.length}
                 <span>وحدة</span>
               </div>
             </div>
@@ -294,36 +325,28 @@ export function Settings() {
             </div>
 
             <div className="units-chips" role="list">
-              {unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean).length === 0 ? (
-                <div className="units-empty">لا وحدات بعد — أضف أول وحدة من الحقل أعلاه.</div>
+              {unitList.length === 0 ? (
+                <div className="units-empty">
+                  <span className="units-empty-icon">＋</span>
+                  <strong>لا وحدات بعد</strong>
+                  <span>اكتب اسم الوحدة أعلاه ثم اضغط إضافة</span>
+                </div>
               ) : (
-                unitsText
-                  .split(/\n/)
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-                  .map((u) => (
-                    <span key={u} className="unit-chip" role="listitem">
-                      <span className="unit-chip-dot" aria-hidden />
-                      <span className="unit-chip-label">{u}</span>
-                      <button
-                        type="button"
-                        className="unit-chip-remove"
-                        title={`حذف ${u}`}
-                        aria-label={`حذف ${u}`}
-                        onClick={() => {
-                          const next = unitsText
-                            .split(/\n/)
-                            .map((x) => x.trim())
-                            .filter((x) => x && x !== u);
-                          setUnitsText(next.join('\n'));
-                          saveSaleUnits(next);
-                          setNotice(`تم حذف «${u}».`);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))
+                unitList.map((u) => (
+                  <span key={u} className="unit-chip" role="listitem">
+                    <span className="unit-chip-dot" aria-hidden />
+                    <span className="unit-chip-label">{u}</span>
+                    <button
+                      type="button"
+                      className="unit-chip-remove"
+                      title={`حذف ${u}`}
+                      aria-label={`حذف ${u}`}
+                      onClick={() => removeUnit(u)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
               )}
             </div>
           </section>
