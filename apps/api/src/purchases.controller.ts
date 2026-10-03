@@ -68,7 +68,7 @@ export class PurchaseInvoicesController {
       // unitCost is cost of the purchased unit (pack or piece). Convert to per-piece cost for inventory.
       const costPerPiece = unit === 'PACK' ? unitCost / piecesPerPack : unitCost;
       let salePrice: number | undefined;
-      if (item.salePrice !== undefined && item.salePrice !== null && item.salePrice !== '') {
+      if (item.salePrice !== undefined && item.salePrice !== null) {
         const sp = Number(item.salePrice);
         if (!Number.isFinite(sp) || sp < 0) throw new BadRequestException('سعر البيع غير صحيح.');
         salePrice = sp;
