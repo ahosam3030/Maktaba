@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest, getToken } from '../data/api';
+import { attachBarcodeGuard } from '../data/barcodeGuard';
 import { ProductPriceReport } from './ProductPriceReport';
 import { IconCart, IconReceipt, IconWallet, IconTag, IconRefresh, IconPackage } from './Icons';
 
@@ -355,6 +356,20 @@ export function Purchases() {
       el?.select();
     });
   }
+
+
+  useEffect(() => {
+    return attachBarcodeGuard((code) => {
+      setLines((old) => {
+        const empty = old.find((l) => !l.productName.trim() && !l.barcode.trim());
+        const key = empty?.key || old[0]?.key;
+        if (!key) return old;
+        // apply after state: use timeout to call fill with known key
+        queueMicrotask(() => fillFromBarcode(key, code));
+        return old.map((l) => (l.key === key ? { ...l, barcode: code } : l));
+      });
+    });
+  }, []);
 
   function fillFromProductName(key: string, name: string) {
     const product = findCatalogProduct(name);

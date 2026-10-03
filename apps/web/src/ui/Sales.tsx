@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { apiRequest } from '../data/api';
+import { attachBarcodeGuard } from '../data/barcodeGuard';
 import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 import { IconReceipt, IconWallet, IconRefresh, IconChart, IconCart } from './Icons';
@@ -243,62 +244,23 @@ export function Sales() {
   onBarcodeChangeRef.current = onBarcodeChange;
 
   useEffect(() => {
-    let buffer = '';
-    let lastTs = 0;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const now = Date.now();
-      const gap = now - lastTs;
-      lastTs = now;
-
-      // منع اختصارات المتصفح أثناء رشقة الماسح (Ctrl/Meta/Alt)
-      if (gap < 55 && (e.ctrlKey || e.metaKey || e.altKey)) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        const code = buffer.trim();
-        buffer = '';
-        if (code.length >= 4 && gap < 120) {
-          e.preventDefault();
-          e.stopPropagation();
-          const lines = cartRef.current;
-          const active =
-            (document.activeElement as HTMLElement | null)?.getAttribute?.('data-line-key') ||
-            lines.find((l) => !l.productId && !String(l.query || '').trim())?.key ||
-            lines[0]?.key;
-          if (active) {
-            onBarcodeChangeRef.current(active, code);
-            resolveBarcodeRef.current(active, code);
-            requestAnimationFrame(() => {
-              const qtyInput = document.querySelector(
-                `input[data-line-key="${active}"][data-field="quantity"]`,
-              ) as HTMLInputElement | null;
-              qtyInput?.focus();
-              qtyInput?.select();
-            });
-          }
-        }
-        return;
-      }
-
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (gap > 90) buffer = '';
-        buffer += e.key;
-        const target = e.target as HTMLElement | null;
-        const tag = (target?.tagName || '').toLowerCase();
-        const isEditable = tag === 'input' || tag === 'textarea' || tag === 'select';
-        if (gap < 50 && !isEditable) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
+    return attachBarcodeGuard((code) => {
+      const lines = cartRef.current;
+      const active =
+        (document.activeElement as HTMLElement | null)?.getAttribute?.('data-line-key') ||
+        lines.find((l) => !l.productId && !String(l.query || '').trim())?.key ||
+        lines[0]?.key;
+      if (!active) return;
+      onBarcodeChangeRef.current(active, code);
+      resolveBarcodeRef.current(active, code);
+      requestAnimationFrame(() => {
+        const qtyInput = document.querySelector(
+          `input[data-line-key="${active}"][data-field="quantity"]`,
+        ) as HTMLInputElement | null;
+        qtyInput?.focus();
+        qtyInput?.select();
+      });
+    });
   }, []);
 
   function resolveProductLine(key: string, value?: string) {
