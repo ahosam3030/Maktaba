@@ -228,6 +228,15 @@ export function Sales() {
     }, 50);
   }
 
+  // عند فتح صفحة المبيعات ركّز أول خانة باركود (مهم للماسح في Edge/Chrome)
+  useEffect(() => {
+    const key = cartRef.current[0]?.key;
+    if (!key) return;
+    const t = window.setTimeout(() => focusBarcodeField(key), 120);
+    return () => window.clearTimeout(t);
+  }, []);
+
+
   function resolveBarcode(key: string, value?: string) {
     const lines = cartRef.current;
     const line = lines.find((l) => l.key === key);

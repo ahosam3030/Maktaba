@@ -2974,3 +2974,37 @@ tbody tr:hover td {
     font-size: 22px;
   }
 }
+
+/* Side nav as buttons (avoid Enter activating links) */
+.side-nav button {
+  display: flex !important;
+  align-items: center;
+  gap: 10px !important;
+  justify-content: flex-start !important;
+  width: 100%;
+  padding: 11px 12px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #b7cece !important;
+  text-decoration: none;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: right;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.side-nav button:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #fff !important;
+}
+.side-nav button.active {
+  background: linear-gradient(90deg, rgba(32, 164, 134, 0.35), rgba(20, 70, 72, 0.9)) !important;
+  color: #fff !important;
+  box-shadow: inset 3px 0 0 #2dd4bf;
+}
+.side-nav button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}

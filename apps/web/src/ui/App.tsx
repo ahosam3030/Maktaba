@@ -310,59 +310,48 @@ export function App() {
         </div>
         <nav className="side-nav">
           <div className="nav-group-label">نظرة عامة</div>
-          <a
-            className={activeSection === 'dashboard' ? 'active' : ''}
-            href="#dashboard"
-            onClick={(e) => { e.preventDefault(); setActiveSection('dashboard'); }}
-          >
+          <button type="button" tabIndex={-1} className={activeSection === 'dashboard' ? 'active' : ''} onClick={() => setActiveSection('dashboard')}>
             <SectionIcon name="dashboard" className="nav-icon" />
             <span>الرئيسية</span>
-          </a>
+          </button>
           <div className="nav-group-label">العمليات</div>
           {hasPermission(sessionUser, 'purchases') && (
-            <a className={activeSection === 'purchases' ? 'active' : ''} href="#purchases"
-              onClick={(e) => { e.preventDefault(); setActiveSection('purchases'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'purchases' ? 'active' : ''} onClick={() => setActiveSection('purchases')}>
               <SectionIcon name="purchases" className="nav-icon" /><span>المشتريات</span>
-            </a>
+            </button>
           )}
           {hasPermission(sessionUser, 'sales') && (
-            <a className={activeSection === 'sales' ? 'active' : ''} href="#sales"
-              onClick={(e) => { e.preventDefault(); setActiveSection('sales'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'sales' ? 'active' : ''} onClick={() => setActiveSection('sales')}>
               <SectionIcon name="sales" className="nav-icon" /><span>المبيعات</span>
-            </a>
+            </button>
           )}
           {hasPermission(sessionUser, 'inventory') && (
-            <a className={activeSection === 'inventory' ? 'active' : ''} href="#inventory"
-              onClick={(e) => { e.preventDefault(); setActiveSection('inventory'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'inventory' ? 'active' : ''} onClick={() => setActiveSection('inventory')}>
               <SectionIcon name="inventory" className="nav-icon" /><span>المخزون</span>
-            </a>
+            </button>
           )}
           {hasPermission(sessionUser, 'printing') && (
-            <a className={activeSection === 'printing' ? 'active' : ''} href="#printing"
-              onClick={(e) => { e.preventDefault(); setActiveSection('printing'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'printing' ? 'active' : ''} onClick={() => setActiveSection('printing')}>
               <SectionIcon name="printing" className="nav-icon" /><span>الخدمات</span>
-            </a>
+            </button>
           )}
           <div className="nav-group-label">المالية</div>
           {hasPermission(sessionUser, 'accounting') && (
-            <a className={activeSection === 'accounting' ? 'active' : ''} href="#accounting"
-              onClick={(e) => { e.preventDefault(); setActiveSection('accounting'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'accounting' ? 'active' : ''} onClick={() => setActiveSection('accounting')}>
               <SectionIcon name="accounting" className="nav-icon" /><span>الخزينة</span>
-            </a>
+            </button>
           )}
           {hasPermission(sessionUser, 'reports') && (
-            <a className={activeSection === 'reports' ? 'active' : ''} href="#reports"
-              onClick={(e) => { e.preventDefault(); setActiveSection('reports'); }}>
+            <button type="button" tabIndex={-1} className={activeSection === 'reports' ? 'active' : ''} onClick={() => setActiveSection('reports')}>
               <SectionIcon name="reports" className="nav-icon" /><span>التقارير</span>
-            </a>
+            </button>
           )}
           {isLoggedIn && (
             <>
               <div className="nav-group-label">النظام</div>
-              <a className={activeSection === 'settings' ? 'active' : ''} href="#settings"
-                onClick={(e) => { e.preventDefault(); setActiveSection('settings'); }}>
-                <SectionIcon name="settings" className="nav-icon" /><span>الإعدادات</span>
-              </a>
+              <button type="button" tabIndex={-1} className={activeSection === 'settings' ? 'active' : ''} onClick={() => setActiveSection('settings')}>
+              <SectionIcon name="settings" className="nav-icon" /><span>الإعدادات</span>
+            </button>
             </>
           )}
         </nav>
