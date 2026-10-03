@@ -50,11 +50,11 @@ export function Settings() {
     saveInvoiceSettings(next);
     setForm(loadInvoiceSettings());
     setTagsText(loadInvoiceSettings().serviceTags.join('\n'));
-    setNotice('تم حفظ إعدادات الفاتورة.');
+    setNotice('تم حفظ بيانات الطباعة.');
   }
 
   function handleResetInvoice() {
-    if (!confirm('استعادة القيم الافتراضية لإعدادات الفاتورة؟')) return;
+    if (!confirm('استعادة القيم الافتراضية لبيانات الطباعة؟')) return;
     const defaults = resetInvoiceSettings();
     setForm(defaults);
     setTagsText(defaults.serviceTags.join('\n'));
@@ -96,26 +96,26 @@ export function Settings() {
   }
 
   const tabs: Array<{ id: Tab; label: string; show: boolean }> = [
-    { id: 'users', label: 'المستخدمون', show: isOwner },
-    { id: 'invoice', label: 'الفاتورة', show: true },
-    { id: 'libraries', label: 'المكتبات على الجهاز', show: true },
-    { id: 'danger', label: 'حذف المكتبة', show: isOwner },
+    { id: 'users', label: 'الحسابات والصلاحيات', show: isOwner },
+    { id: 'invoice', label: 'الطباعة والإيصالات', show: true },
+    { id: 'libraries', label: 'هذا الجهاز', show: true },
+    { id: 'danger', label: 'حذف نهائي', show: isOwner },
   ];
 
   return (
     <div className="purchases-page">
       <div className="purchase-title">
         <div>
-          <span className="eyebrow">التحكم</span>
+          <span className="eyebrow">النظام</span>
           <h1>الإعدادات</h1>
           <p>
             {sessionOrg?.name ? (
               <>
-                {sessionOrg.name}
-                {sessionUser ? ` · ${sessionUser.fullName}` : ''}
+                إدارة الحسابات، بيانات الطباعة، والمكتبات المحفوظة على الجهاز
+                {sessionUser ? ` — ${sessionOrg.name}` : ''}
               </>
             ) : (
-              'إعدادات النظام والحسابات'
+              'إدارة الحسابات وبيانات الطباعة وهذا الجهاز'
             )}
           </p>
         </div>
@@ -157,8 +157,8 @@ export function Settings() {
           <section className="purchase-panel">
             <div className="panel-heading">
               <div>
-                <h2>بيانات الفاتورة المطبوعة</h2>
-                <p>تظهر في رأس وتذييل فاتورة البيع.</p>
+                <h2>بيانات الطباعة والإيصالات</h2>
+                <p>الاسم والعنوان ووسائل التواصل والعلامة المائية كما تظهر على فواتير البيع والإيصالات المطبوعة.</p>
               </div>
             </div>
             <div className="purchase-form-grid">
@@ -202,7 +202,7 @@ export function Settings() {
             </div>
             <div className="form-actions">
               <button className="primary-btn" type="button" onClick={handleSaveInvoice}>
-                حفظ إعدادات الفاتورة
+                حفظ بيانات الطباعة
               </button>
               <button className="secondary-btn" type="button" onClick={handleResetInvoice}>
                 استعادة الافتراضي
@@ -217,8 +217,8 @@ export function Settings() {
           <section className="purchase-panel">
             <div className="panel-heading">
               <div>
-                <h2>المكتبات على هذا الجهاز</h2>
-                <p>مرجع محلي فقط — لا يحذف بيانات الخادم.</p>
+                <h2>المكتبات المحفوظة على هذا الجهاز</h2>
+                <p>قائمة محلية في المتصفح فقط للمساعدة في التعرّف على المكتبة. «إزالة من الجهاز» لا تحذف أي شيء من الخادم.</p>
               </div>
               <span className="count-badge">{organizations.length}</span>
             </div>
@@ -272,9 +272,9 @@ export function Settings() {
           <section className="purchase-panel danger-zone">
             <div className="panel-heading">
               <div>
-                <h2>حذف المكتبة من الخادم</h2>
+                <h2>حذف المكتبة نهائيًا من الخادم</h2>
                 <p>
-                  للمالك فقط. يحذف «{sessionOrg.name}» وكل الفواتير والمستخدمين. لا يمكن التراجع.
+                  للمالك فقط. يحذف «{sessionOrg.name}» وكل الفواتير والمخزون والمبيعات والمستخدمين من قاعدة البيانات. لا يمكن التراجع.
                 </p>
               </div>
             </div>

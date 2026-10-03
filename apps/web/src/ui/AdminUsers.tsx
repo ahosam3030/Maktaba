@@ -154,7 +154,7 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
       {!embedded && (
         <div className="purchase-title">
           <div>
-            <span className="eyebrow">لوحة الأدمن</span>
+            <span className="eyebrow">الحسابات</span>
             <h1>إدارة المستخدمين</h1>
           </div>
         </div>
@@ -172,8 +172,8 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
       )}
 
       <div className="settings-hint">
-        <strong>استبدال الحساب الافتراضي:</strong> أنشئ مستخدمًا بدور <em>مالك</em> ببريدك وكلمة مرورك، ثم احذف
-        حساب <code dir="ltr">admin@maktaba.local</code> من الجدول. يجب أن يبقى مالك واحد على الأقل.
+        <strong>استبدال الحساب الافتراضي:</strong> أنشئ حساب مالك ببياناتك الحقيقية، ثم احذف حساب
+        <code dir="ltr">admin@maktaba.local</code> من الجدول. يجب أن يبقى مالك واحد على الأقل في المكتبة.
         {ownerCount > 0 && (
           <span>
             {' '}

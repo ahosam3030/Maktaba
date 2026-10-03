@@ -265,7 +265,7 @@ export function App() {
     { key: 'accounting', label: 'الخزينة', desc: 'الوارد والمنصرف', show: hasPermission(sessionUser, 'accounting') },
     { key: 'reports', label: 'التقارير', desc: 'الأرباح ورأس المال', show: hasPermission(sessionUser, 'reports') },
     { key: 'printing', label: 'الخدمات', desc: 'الخدمات والإيصالات', show: hasPermission(sessionUser, 'printing') },
-    { key: 'settings', label: 'الإعدادات', desc: 'شكل الفاتورة', show: isLoggedIn },
+    { key: 'settings', label: 'الإعدادات', desc: 'حسابات، طباعة، الجهاز', show: isLoggedIn },
   ];
 
   return (
@@ -346,7 +346,7 @@ export function App() {
               href="#settings"
               onClick={() => setActiveSection('settings')}
             >
-              إعدادات الفاتورة
+              الإعدادات
             </a>
           )}
         </nav>
