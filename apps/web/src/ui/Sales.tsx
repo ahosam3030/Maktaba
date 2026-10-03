@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { apiRequest } from '../data/api';
 import { attachBarcodeGuard, isDevToolsLikelyOpen } from '../data/barcodeGuard';
+import { ScanModeOverlay } from './ScanModeOverlay';
 import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 import { IconReceipt, IconWallet, IconRefresh, IconChart, IconCart } from './Icons';
@@ -79,6 +80,7 @@ export function Sales() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [devtoolsWarn, setDevtoolsWarn] = useState(false);
+  const [scanMode, setScanMode] = useState(false);
 
   useEffect(() => {
     const check = () => setDevtoolsWarn(isDevToolsLikelyOpen());
@@ -922,10 +924,15 @@ function printDraft() {
           <h1>المبيعات</h1>
           <p>فواتير البيع · التحصيل · المكسب · السجل</p>
         </div>
-        <button className="secondary-btn" type="button" onClick={() => void refresh()}>
-          <IconRefresh size={16} />
-          <span>تحديث</span>
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="primary-btn" type="button" onClick={() => setScanMode(true)}>
+            <span>مسح باركود</span>
+          </button>
+          <button className="secondary-btn" type="button" onClick={() => void refresh()}>
+            <IconRefresh size={16} />
+            <span>تحديث</span>
+          </button>
+        </div>
       </div>
 
       <div className="pur-stats">
@@ -1351,6 +1358,23 @@ function printDraft() {
           </div>
         </div>
       )}
+
+
+      <ScanModeOverlay
+        open={scanMode}
+        title="مسح باركود للبيع"
+        onClose={() => setScanMode(false)}
+        onScan={(code) => {
+          const lines = cartRef.current;
+          const active =
+            lines.find((l) => !l.productId && !String(l.query || '').trim())?.key || lines[0]?.key;
+          if (active) {
+            onBarcodeChange(active, code);
+            resolveBarcode(active, code);
+          }
+          setScanMode(false);
+        }}
+      />
 
     </div>
   );
