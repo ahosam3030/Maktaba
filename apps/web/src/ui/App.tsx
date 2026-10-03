@@ -20,6 +20,15 @@ import { Accounting } from './Accounting';
 import { Settings } from './Settings';
 import { Reports } from './Reports';
 
+function isStrongPassword(password: string): boolean {
+  if (!password || password.length < 10) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  if (!/[^A-Za-z0-9]/.test(password)) return false;
+  return true;
+}
+
 type ConnectionState = 'checking' | 'online' | 'offline';
 type AuthMode = 'login' | 'register';
 
@@ -88,8 +97,12 @@ export function App() {
   }, []);
 
   async function handleRegister() {
-    if (!name.trim() || !slug.trim() || !ownerName.trim() || !email.trim() || password.length < 10) {
-      setMessage('أكمل البيانات. كلمة المرور 10 أحرف على الأقل.');
+    if (!name.trim() || !slug.trim() || !ownerName.trim() || !email.trim()) {
+      setMessage('أكمل كل الحقول المطلوبة.');
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      setMessage('كلمة المرور: 10 أحرف على الأقل وتشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا.');
       return;
     }
     setBusy(true);

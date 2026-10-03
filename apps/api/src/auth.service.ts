@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
 import { ALL_PERMISSIONS, isAdminRole, parsePermissions } from './auth';
-import { hashPassword, verifyPassword } from './crypto.util';
+import { hashPassword, verifyPassword, isStrongPassword, PASSWORD_POLICY_MESSAGE } from './crypto.util';
 
 @Injectable()
 export class AuthService {
@@ -48,8 +48,8 @@ export class AuthService {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new BadRequestException('البريد الإلكتروني غير صحيح.');
     }
-    if (password.length < 10) {
-      throw new BadRequestException('كلمة المرور يجب ألا تقل عن 10 أحرف.');
+    if (!isStrongPassword(password)) {
+      throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
     }
     const passwordHash = await hashPassword(password);
     const allPerms = JSON.stringify([...ALL_PERMISSIONS]);

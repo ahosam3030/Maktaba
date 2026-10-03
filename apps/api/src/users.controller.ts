@@ -21,7 +21,7 @@ import {
   RequirePermission,
   PermissionsGuard,
 } from './auth';
-import { hashPassword } from './crypto.util';
+import { hashPassword, isStrongPassword, PASSWORD_POLICY_MESSAGE } from './crypto.util';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -74,8 +74,11 @@ export class UsersController {
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? '';
     let role = (body.role || 'USER').toUpperCase();
-    if (!fullName || !email || password.length < 10) {
-      throw new BadRequestException('الاسم والبريد وكلمة مرور لا تقل عن 10 أحرف مطلوبة.');
+    if (!fullName || !email) {
+      throw new BadRequestException('الاسم والبريد مطلوبان.');
+    }
+    if (!isStrongPassword(password)) {
+      throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new BadRequestException('البريد الإلكتروني غير صحيح.');
@@ -181,7 +184,7 @@ export class UsersController {
     }
 
     if (body.password) {
-      if (body.password.length < 10) throw new BadRequestException('كلمة المرور يجب ألا تقل عن 10 أحرف.');
+      if (!isStrongPassword(body.password)) throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
       data.passwordHash = await hashPassword(body.password);
     }
 

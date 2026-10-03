@@ -1,3 +1,17 @@
+
+/** سياسة كلمة المرور: ≥10 + كبيرة + صغيرة + رقم + رمز */
+export const PASSWORD_POLICY_MESSAGE =
+  'كلمة المرور يجب ألا تقل عن 10 أحرف وتشمل حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا (!@#$%^&* إلخ).';
+
+export function isStrongPassword(password: string): boolean {
+  if (!password || password.length < 10) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  if (!/[^A-Za-z0-9]/.test(password)) return false;
+  return true;
+}
+
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
