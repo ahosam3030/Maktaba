@@ -123,12 +123,14 @@ export function App() {
         id: result.organization.id,
         name: result.organization.name,
         slug: result.organization.slug,
-        phone: phone.trim() || undefined,
+        phone: result.organization.phone || phone.trim() || undefined,
         localOnly: false,
+        linkedUserId: result.user.id,
+        linkedUserEmail: result.user.email,
         updatedAt: new Date().toISOString(),
       });
       await refreshLocal();
-      setMessage(`تم إنشاء «${result.organization.name}» بنجاح.`);
+      setMessage(`تم إنشاء «${result.organization.name}» وربطها بحسابك.`);
       setPassword('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'تعذر إنشاء الحساب.');
@@ -153,11 +155,14 @@ export function App() {
         id: result.organization.id,
         name: result.organization.name,
         slug: result.organization.slug,
+        phone: result.organization.phone || undefined,
         localOnly: false,
+        linkedUserId: result.user.id,
+        linkedUserEmail: result.user.email,
         updatedAt: new Date().toISOString(),
       });
       await refreshLocal();
-      setMessage(`مرحبًا ${result.user.fullName}`);
+      setMessage(`مرحبًا ${result.user.fullName} — مكتبة «${result.organization.name}»`);
       setLoginPassword('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'تعذر تسجيل الدخول.');

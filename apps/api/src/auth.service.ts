@@ -190,6 +190,7 @@ export class AuthService {
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
+        phone: organization.phone || null,
       },
     };
   }

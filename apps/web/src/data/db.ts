@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 
-export interface LocalOrganization { id: string; name: string; slug: string; phone?: string; localOnly: boolean; updatedAt: string; }
+export interface LocalOrganization { id: string; name: string; slug: string; phone?: string; localOnly: boolean; linkedUserId?: string; linkedUserEmail?: string; updatedAt: string; }
 export interface SyncOperation { id: string; entity: 'organization'; action: 'create'; payload: Omit<LocalOrganization, 'localOnly' | 'updatedAt'>; createdAt: string; status: 'pending' | 'synced' | 'failed'; }
 export interface Supplier { id: string; name: string; phone?: string; notes?: string; createdAt: string; }
 export interface Product { id: string; name: string; barcode?: string; category?: string; defaultUnit: 'piece' | 'box'; piecesPerBox: number; createdAt: string; }

@@ -172,6 +172,11 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
       )}
 
       <div className="settings-hint">
+        <strong>معاني الأدوار:</strong> <em>مالك</em> = صاحب المكتبة (كل الصلاحيات + الحسابات + حذف المكتبة).{' '}
+        <em>أدمن</em> = كل أقسام العمل دون حذف المكتبة أو إنشاء ملاك. <em>مستخدم</em> = صلاحيات تختارها أنت فقط.
+        المكتبة واحدة مرتبطة بكل الحسابات؛ لا يوجد مستخدم بلا مكتبة.
+      </div>
+      <div className="settings-hint">
         <strong>استبدال الحساب الافتراضي:</strong> أنشئ حساب مالك ببياناتك الحقيقية، ثم احذف حساب
         <code dir="ltr">admin@maktaba.local</code> من الجدول. يجب أن يبقى مالك واحد على الأقل في المكتبة.
         {ownerCount > 0 && (
@@ -206,9 +211,9 @@ export function AdminUsers({ embedded = false }: { embedded?: boolean }) {
           <label>
             الدور
             <select value={role} onChange={(e) => setRole(e.target.value as 'USER' | 'ADMIN' | 'OWNER')}>
-              <option value="USER">مستخدم عادي</option>
-              <option value="ADMIN">أدمن</option>
-              <option value="OWNER">مالك</option>
+              <option value="USER">مستخدم — صلاحيات محددة</option>
+              <option value="ADMIN">أدمن — كل الأقسام (بدون حذف المكتبة)</option>
+              <option value="OWNER">مالك — كامل الصلاحيات + إدارة الحسابات</option>
             </select>
           </label>
         </div>

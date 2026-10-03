@@ -65,7 +65,7 @@ export type AuthResult = {
   accessToken: string;
   tokenType: 'Bearer';
   user: { id: string; fullName: string; email: string; role: string; permissions: string[] };
-  organization: { id: string; name: string; slug: string };
+  organization: { id: string; name: string; slug: string; phone?: string | null };
 };
 
 export async function registerOrganization(input: RegistrationInput): Promise<AuthResult> {

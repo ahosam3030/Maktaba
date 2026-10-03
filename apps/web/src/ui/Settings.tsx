@@ -265,16 +265,64 @@ export function Settings() {
           <section className="purchase-panel">
             <div className="panel-heading">
               <div>
-                <h2>المكتبات المحفوظة على هذا الجهاز</h2>
+                <h2>مكتبة الحساب</h2>
                 <p>
-                  مرجع في المتصفح فقط. «إزالة من الجهاز» تمسح الاسم من القائمة المحلية ولا تحذف
-                  أي بيانات من الخادم.
+                  المكتبة مرتبطة بحساب الدخول على الخادم. كل الفواتير والمخزون والمستخدمين تحت هذه المكتبة.
+                </p>
+              </div>
+            </div>
+            {sessionOrg ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>الاسم</th>
+                      <th>المعرّف</th>
+                      <th>الهاتف</th>
+                      <th>الحساب</th>
+                      <th>الدور</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        {sessionOrg.name}
+                        <span className="tag synced" style={{ marginInlineStart: 8 }}>
+                          مرتبطة بالحساب
+                        </span>
+                      </td>
+                      <td dir="ltr">{sessionOrg.slug}</td>
+                      <td dir="ltr">{sessionOrg.phone?.trim() ? sessionOrg.phone : '—'}</td>
+                      <td dir="ltr">{sessionUser?.email || '—'}</td>
+                      <td>
+                        {sessionUser?.role === 'OWNER'
+                          ? 'مالك'
+                          : sessionUser?.role === 'ADMIN'
+                            ? 'أدمن'
+                            : 'مستخدم'}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">لا توجد جلسة. سجّل الدخول أولًا.</div>
+            )}
+          </section>
+
+          <section className="purchase-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>نسخ محفوظة على هذا الجهاز</h2>
+                <p>
+                  تخزين مؤقت في المتصفح بعد تسجيل الدخول. الإزالة من هنا لا تحذف المكتبة من الخادم ولا تلغي
+                  الحساب.
                 </p>
               </div>
               <span className="count-badge">{organizations.length}</span>
             </div>
             {organizations.length === 0 ? (
-              <div className="empty-state">لا مكتبات محفوظة على هذا الجهاز بعد.</div>
+              <div className="empty-state">لا توجد نسخ محلية. ستُحفظ تلقائيًا عند تسجيل الدخول.</div>
             ) : (
               <div className="table-wrap">
                 <table>
@@ -283,6 +331,7 @@ export function Settings() {
                       <th>الاسم</th>
                       <th>المعرّف</th>
                       <th>الهاتف</th>
+                      <th>مرتبطة بـ</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -295,12 +344,18 @@ export function Settings() {
                             {org.name}
                             {isCurrent ? (
                               <span className="tag synced" style={{ marginInlineStart: 8 }}>
-                                الحالية
+                                جلسة حالية
+                              </span>
+                            ) : null}
+                            {org.localOnly ? (
+                              <span className="tag local" style={{ marginInlineStart: 8 }}>
+                                غير مربوطة
                               </span>
                             ) : null}
                           </td>
                           <td dir="ltr">{org.slug}</td>
                           <td dir="ltr">{org.phone?.trim() ? org.phone : '—'}</td>
+                          <td dir="ltr">{org.linkedUserEmail || (org.localOnly ? '—' : 'حساب خادم')}</td>
                           <td>
                             <button
                               className="danger-outline-btn"
@@ -321,7 +376,7 @@ export function Settings() {
         </div>
       )}
 
-      {tab === 'danger' && isOwner && sessionOrg && (
+      {tab === 'danger && isOwner && sessionOrg && (
         <div className="settings-tab-panel">
           <section className="purchase-panel danger-zone">
             <div className="panel-heading">
