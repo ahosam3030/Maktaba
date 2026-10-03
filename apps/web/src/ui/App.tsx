@@ -19,7 +19,7 @@ import { Printing } from './Printing';
 import { Accounting } from './Accounting';
 import { Settings } from './Settings';
 import { Reports } from './Reports';
-import { SectionIcon, IconLogout, IconLock, type SectionIconKey } from './Icons';
+import { SectionIcon, IconLogout, IconLock, BrandLogo, WelcomeArt, type SectionIconKey } from './Icons';
 
 function isStrongPassword(password: string): boolean {
   if (!password) return false;
@@ -284,7 +284,7 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">م</div>
+          <BrandLogo size={44} className="brand-logo" />
           <div className="brand-copy">
             <strong>إدارة المكتبات</strong>
             <span>نظام تجاري</span>
@@ -494,8 +494,8 @@ export function App() {
             )}
 
             <section className="welcome-banner">
-              <div>
-                <p className="eyebrow">مرحبًا</p>
+              <div className="welcome-banner-text">
+                <p className="eyebrow">مرحبًا بك</p>
                 <h2>{sessionUser?.fullName}</h2>
                 <p>
                   {sessionOrg?.name}
@@ -506,12 +506,15 @@ export function App() {
                     </>
                   ) : null}
                 </p>
+                <div className="welcome-meta">
+                  <span className="role-pill">{roleLabel}</span>
+                  <span className={`pill ${connection === 'online' ? 'ok' : 'bad'}`}>
+                    {connection === 'online' ? 'قاعدة البيانات جاهزة' : 'تحقق من تشغيل الخادم'}
+                  </span>
+                </div>
               </div>
-              <div className="welcome-meta">
-                <span className="role-pill">{roleLabel}</span>
-                <span className={`pill ${connection === 'online' ? 'ok' : 'bad'}`}>
-                  {connection === 'online' ? 'قاعدة البيانات جاهزة' : 'تحقق من تشغيل الخادم'}
-                </span>
+              <div className="welcome-art" aria-hidden>
+                <WelcomeArt />
               </div>
             </section>
 

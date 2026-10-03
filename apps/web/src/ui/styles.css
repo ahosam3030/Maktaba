@@ -1709,3 +1709,57 @@ html,body,input,button,select,textarea,table{
 @media (max-width:500px){
   .settings-org-grid{grid-template-columns:1fr}
 }
+
+/* ===== Brand & graphics ===== */
+.brand-logo{
+  flex-shrink:0;
+  filter:drop-shadow(0 6px 14px rgba(15,118,110,.35));
+}
+.brand-mark{display:none} /* replaced by BrandLogo */
+
+.welcome-banner{
+  display:flex !important;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:28px 32px !important;
+  min-height:160px;
+}
+.welcome-banner-text{position:relative;z-index:1;flex:1;min-width:0}
+.welcome-banner-text .eyebrow{color:#a7f3d0 !important;font-weight:600}
+.welcome-banner-text h2{color:#fff;margin:6px 0 8px}
+.welcome-banner-text > p{color:#c5e8e2 !important;margin:0 0 14px}
+.welcome-art{
+  flex-shrink:0;
+  position:relative;
+  z-index:1;
+  opacity:.95;
+  filter:drop-shadow(0 12px 24px rgba(0,0,0,.15));
+}
+.welcome-meta{margin-top:4px}
+
+.quick-card-icon{
+  position:relative;
+}
+.quick-card-icon::after{
+  content:"";
+  position:absolute;
+  inset:-4px;
+  border-radius:16px;
+  background:radial-gradient(circle at 30% 30%,rgba(45,212,191,.25),transparent 70%);
+  z-index:-1;
+  opacity:0;
+  transition:opacity .15s;
+}
+.quick-card:hover .quick-card-icon::after{opacity:1}
+
+.empty-state{
+  padding:36px 16px !important;
+  gap:10px !important;
+}
+.empty-state svg{margin-bottom:4px;opacity:.9}
+
+@media (max-width:700px){
+  .welcome-art{display:none}
+  .welcome-banner{min-height:0;padding:22px !important}
+}

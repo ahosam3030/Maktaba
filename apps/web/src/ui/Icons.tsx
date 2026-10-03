@@ -180,3 +180,117 @@ export function SectionIcon({ name, size = 18, className }: { name: SectionIconK
   const C = SECTION_ICONS[name] || IconHome;
   return <C size={size} className={className} />;
 }
+
+/** شعار النظام — حرف م داخل شكل كتاب/لوحة */
+export function BrandLogo({ size = 44, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 48 48"
+      fill="none"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="brandGrad" x1="8" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#2dd4bf" />
+          <stop offset="1" stopColor="#0f766e" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#brandGrad)" />
+      <path
+        d="M14 12h12.5c4.2 0 7.5 2.8 7.5 6.8 0 2.6-1.3 4.7-3.4 5.8 2.6 1.1 4.2 3.5 4.2 6.4 0 4.3-3.5 7-8.2 7H14V12z"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2.4"
+        strokeLinejoin="round"
+      />
+      <path d="M14 12v32" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M14 24h11.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" opacity=".9" />
+    </svg>
+  );
+}
+
+/** رسمة ترحيب للوحة الرئيسية */
+export function WelcomeArt({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 220 160" width="220" height="160" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="wa1" x1="40" y1="20" x2="180" y2="140" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#5eead4" stopOpacity=".9" />
+          <stop offset="1" stopColor="#99f6e4" stopOpacity=".35" />
+        </linearGradient>
+        <linearGradient id="wa2" x1="100" y1="30" x2="190" y2="130">
+          <stop stopColor="#fff" stopOpacity=".35" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".05" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="110" cy="140" rx="78" ry="12" fill="#0b4f4a" opacity=".25" />
+      {/* desk */}
+      <rect x="28" y="108" width="164" height="10" rx="3" fill="url(#wa2)" />
+      {/* monitor */}
+      <rect x="58" y="42" width="104" height="66" rx="8" fill="url(#wa1)" stroke="#fff" strokeOpacity=".35" />
+      <rect x="68" y="52" width="84" height="42" rx="4" fill="#0f766e" opacity=".55" />
+      <path d="M78 62h40M78 72h28M78 82h34" stroke="#99f6e4" strokeWidth="2.5" strokeLinecap="round" opacity=".9" />
+      <rect x="96" y="108" width="28" height="8" rx="2" fill="#ccfbf1" opacity=".7" />
+      {/* chart bars */}
+      <rect x="168" y="78" width="12" height="30" rx="2" fill="#fff" opacity=".45" />
+      <rect x="184" y="64" width="12" height="44" rx="2" fill="#fff" opacity=".55" />
+      <rect x="200" y="88" width="12" height="20" rx="2" fill="#fff" opacity=".4" />
+      {/* floating coin */}
+      <circle cx="42" cy="58" r="16" fill="#fde68a" opacity=".85" />
+      <circle cx="42" cy="58" r="11" fill="none" stroke="#b45309" strokeWidth="1.5" opacity=".5" />
+      <text x="42" y="63" textAnchor="middle" fontSize="12" fontWeight="700" fill="#92400e">ج</text>
+    </svg>
+  );
+}
+
+/** أيقونة حالة فارغة */
+export function EmptyArt({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 120 100" width="88" height="72" fill="none" aria-hidden>
+      <rect x="22" y="28" width="76" height="52" rx="8" fill="#e8f4f1" stroke="#b7d9d1" strokeWidth="1.5" />
+      <path d="M22 40h76" stroke="#b7d9d1" strokeWidth="1.5" />
+      <circle cx="36" cy="34" r="2.5" fill="#99c9be" />
+      <circle cx="46" cy="34" r="2.5" fill="#99c9be" />
+      <circle cx="56" cy="34" r="2.5" fill="#99c9be" />
+      <path d="M40 58h40M40 68h28" stroke="#9ebbb9" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="88" cy="72" r="16" fill="#0f766e" opacity=".12" />
+      <path d="M88 64v16M80 72h16" stroke="#0f766e" strokeWidth="2.2" strokeLinecap="round" opacity=".6" />
+    </svg>
+  );
+}
+
+export function IconSearch(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </Svg>
+  );
+}
+
+export function IconPlus(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M12 5v14M5 12h14" />
+    </Svg>
+  );
+}
+
+export function IconTrash(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </Svg>
+  );
+}
+
+export function IconCheck(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M20 6 9 17l-5-5" />
+    </Svg>
+  );
+}
