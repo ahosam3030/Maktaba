@@ -11,14 +11,12 @@ import {
   getStoredUser,
   getStoredOrganization,
   hasPermission,
-  isAdminUser,
 } from '../data/api';
 import { Purchases } from './Purchases';
 import { Inventory } from './Inventory';
 import { Sales } from './Sales';
 import { Printing } from './Printing';
 import { Accounting } from './Accounting';
-import { AdminUsers } from './AdminUsers';
 import { Settings } from './Settings';
 import { Reports } from './Reports';
 
@@ -44,7 +42,7 @@ export function App() {
   const [sessionUser, setSessionUser] = useState(getStoredUser());
   const [sessionOrg, setSessionOrg] = useState(getStoredOrganization());
   const [activeSection, setActiveSection] = useState<
-    'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'admin' | 'settings'
+    'dashboard' | 'purchases' | 'inventory' | 'sales' | 'printing' | 'accounting' | 'reports' | 'settings'
   >('dashboard');
   const [confirmSlug, setConfirmSlug] = useState('');
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
@@ -255,7 +253,6 @@ export function App() {
     { key: 'accounting', label: 'الخزينة', desc: 'الوارد والمنصرف', show: hasPermission(sessionUser, 'accounting') },
     { key: 'reports', label: 'التقارير', desc: 'الأرباح ورأس المال', show: hasPermission(sessionUser, 'reports') },
     { key: 'printing', label: 'الخدمات', desc: 'الخدمات والإيصالات', show: hasPermission(sessionUser, 'printing') },
-    { key: 'admin', label: 'المستخدمون', desc: 'الصلاحيات والحسابات', show: isAdminUser(sessionUser) },
     { key: 'settings', label: 'الإعدادات', desc: 'شكل الفاتورة', show: isLoggedIn },
   ];
 
@@ -331,15 +328,6 @@ export function App() {
               الخدمات والإيصالات
             </a>
           )}
-          {isAdminUser(sessionUser) && (
-            <a
-              className={activeSection === 'admin' ? 'active' : ''}
-              href="#admin"
-              onClick={() => setActiveSection('admin')}
-            >
-              المستخدمون
-            </a>
-          )}
           {isLoggedIn && (
             <a
               className={activeSection === 'settings' ? 'active' : ''}
@@ -387,9 +375,7 @@ export function App() {
                         ? 'التقارير'
                         : activeSection === 'printing'
                           ? 'الخدمات'
-                          : activeSection === 'admin'
-                            ? 'المستخدمون'
-                            : activeSection === 'settings'
+                          : activeSection === 'settings'
                               ? 'الإعدادات'
                               : 'لوحة التحكم'}
           </h1>
@@ -480,7 +466,7 @@ export function App() {
                 <>
                   <h3>تثبيت مكتبة جديدة</h3>
                   <p className="muted-sm">
-                    لإنشاء مكتبة ومالك لأول مرة فقط. بعدها المالك يضيف المستخدمين من «المستخدمون».
+                    لإنشاء مكتبة ومالك لأول مرة فقط. بعدها المالك يضيف المستخدمين من «الإعدادات».
                   </p>
                   <div className="form-grid auth-form">
                     <label>
@@ -595,8 +581,6 @@ export function App() {
           <Accounting />
         ) : activeSection === 'reports' && hasPermission(sessionUser, 'reports') ? (
           <Reports />
-        ) : activeSection === 'admin' && isAdminUser(sessionUser) ? (
-          <AdminUsers />
         ) : activeSection === 'settings' && isLoggedIn ? (
           <Settings />
         ) : null}

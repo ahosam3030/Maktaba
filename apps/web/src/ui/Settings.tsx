@@ -12,8 +12,8 @@ import {
   clearSession,
   getStoredOrganization,
   getStoredUser,
-  isAdminUser,
 } from '../data/api';
+import { AdminUsers } from './AdminUsers';
 
 export function Settings() {
   const sessionUser = getStoredUser();
@@ -247,21 +247,11 @@ export function Settings() {
         </section>
       )}
 
-      {isAdminUser(sessionUser) && (
-        <section className="purchase-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>حسابات المستخدمين</h2>
-              <p>
-                {isOwner
-                  ? 'المالك فقط ينشئ ويعدّل حسابات الموظفين من قائمة «المستخدمون».'
-                  : 'عرض وإدارة محدودة — إنشاء الحسابات للمالك فقط.'}
-              </p>
-            </div>
+      {isOwner && (
+        <section className="purchase-panel" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '4px 4px 16px' }}>
+            <AdminUsers />
           </div>
-          <p className="muted-sm">
-            من الشريط الجانبي افتح <strong>المستخدمون</strong> لإضافة موظف أو تعديل صلاحياته.
-          </p>
         </section>
       )}
     </div>
