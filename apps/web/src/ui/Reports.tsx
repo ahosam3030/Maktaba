@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
+import { ProductPriceReport } from './ProductPriceReport';
 
 const money = (n: number) =>
   `${(Number(n) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
@@ -299,6 +300,8 @@ export function Reports() {
               {series.length === 0 && <div className="empty-state">لا مبيعات في هذه الفترة.</div>}
             </div>
           </section>
+
+          <ProductPriceReport />
 
           <section className="purchase-panel">
             <div className="panel-heading">
