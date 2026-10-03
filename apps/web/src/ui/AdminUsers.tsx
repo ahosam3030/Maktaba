@@ -85,14 +85,10 @@ export function AdminUsers() {
   }
 
   if (me?.role !== 'OWNER') {
-    return <div className="purchases-page"><div className="purchase-notice" role="alert">هذه الصفحة للأدمن فقط.</div></div>;
-  }
-
-  if (!isOwner) {
     return (
       <div className="purchases-page">
         <div className="purchase-notice" role="alert">
-          إنشاء وتعديل حسابات المستخدمين متاح لمالك المكتبة فقط. تواصل مع المالك لإضافة صلاحياتك.
+          إنشاء وتعديل حسابات المستخدمين متاح لمالك المكتبة فقط.
         </div>
       </div>
     );
