@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { startSyncWatchers, processSyncQueue, subscribeSyncQueue, countPending } from '../data/sync';
-import { isDevToolsShortcut } from '../data/barcodeGuard';
+import { attachDevToolsBlocker, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { fetchInvoiceSettings } from '../data/invoiceSettings';
 import { db, type LocalOrganization } from '../data/db';
 import {
@@ -67,14 +67,7 @@ export function App() {
   const isLoggedIn = Boolean(getToken() && sessionUser);
   useEffect(() => {
     if (!isLoggedIn) return;
-    const block = (e: KeyboardEvent) => {
-      if (isDevToolsShortcut(e)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener('keydown', block, true);
-    return () => window.removeEventListener('keydown', block, true);
+    return attachDevToolsBlocker();
   }, [isLoggedIn]);
 
 

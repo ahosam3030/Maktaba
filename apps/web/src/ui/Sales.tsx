@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { apiRequest } from '../data/api';
-import { attachBarcodeGuard } from '../data/barcodeGuard';
+import { attachBarcodeGuard, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 import { IconReceipt, IconWallet, IconRefresh, IconChart, IconCart } from './Icons';
@@ -78,6 +78,18 @@ export function Sales() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [devtoolsWarn, setDevtoolsWarn] = useState(false);
+
+  useEffect(() => {
+    const check = () => setDevtoolsWarn(isDevToolsLikelyOpen());
+    check();
+    const id = window.setInterval(check, 1500);
+    window.addEventListener('resize', check);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('resize', check);
+    };
+  }, []);
 
   /** أكبر رقم فاتورة + 1 (أرقام فقط من نهاية الرقم أو الرقم كاملًا) */
   function computeNextInvoiceNo(records: Sale[]): string {
@@ -898,6 +910,12 @@ function printDraft() {
 
   return (
     <div className="purchases-page sales-page">
+      {devtoolsWarn && (
+        <div className="purchase-notice" role="alert" style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }}>
+          أدوات المطوّر (DevTools) مفتوحة على الجانب — <strong>أغلقها من زر X أو F12</strong> ثم امسح الباركود.
+          لو استمر الفتح بعد الإغلاق، الماسح مبرمَج باختصار متصفح ويجب إزالة الـ Prefix من إعدادات الماسح.
+        </div>
+      )}
       <div className="purchase-title">
         <div>
           <span className="eyebrow">نقطة البيع</span>

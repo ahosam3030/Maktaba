@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest, getToken } from '../data/api';
-import { attachBarcodeGuard } from '../data/barcodeGuard';
+import { attachBarcodeGuard, isDevToolsLikelyOpen } from '../data/barcodeGuard';
 import { ProductPriceReport } from './ProductPriceReport';
 import { IconCart, IconReceipt, IconWallet, IconTag, IconRefresh, IconPackage } from './Icons';
 
@@ -32,6 +32,14 @@ export function Purchases() {
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
   const [catalog, setCatalog] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [devtoolsWarn, setDevtoolsWarn] = useState(false);
+  useEffect(() => {
+    const check = () => setDevtoolsWarn(isDevToolsLikelyOpen());
+    check();
+    const id = window.setInterval(check, 1500);
+    window.addEventListener('resize', check);
+    return () => { window.clearInterval(id); window.removeEventListener('resize', check); };
+  }, []);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [pageTab, setPageTab] = useState<'invoice' | 'payments' | 'returns' | 'report' | 'history'>('invoice');
@@ -608,6 +616,11 @@ export function Purchases() {
 
   return (
     <div className="purchases-page">
+      {devtoolsWarn && (
+        <div className="purchase-notice" role="alert" style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e' }}>
+          أدوات المطوّر (DevTools) مفتوحة — أغلقها (X أو F12) قبل مسح الباركود. إن استمر الفتح فالماسح يرسل اختصار متصفح (أعد برمجة الـ Prefix).
+        </div>
+      )}
       <div className="purchase-title">
         <div>
           <span className="eyebrow">العمليات</span>
