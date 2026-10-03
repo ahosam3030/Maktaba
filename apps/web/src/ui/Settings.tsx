@@ -15,6 +15,7 @@ import {
 } from '../data/api';
 import { AdminUsers } from './AdminUsers';
 import { Inventory } from './Inventory';
+import { loadSaleUnits, saveSaleUnits, resetSaleUnits, DEFAULT_SALE_UNITS } from '../data/units';
 import { IconUsers, IconPrint, IconSettings, IconPackage, IconLock, IconRefresh, IconBoxes } from './Icons';
 
 type Tab = 'invoice' | 'users' | 'products' | 'libraries' | 'danger';
@@ -32,6 +33,8 @@ export function Settings() {
   const [organizations, setOrganizations] = useState<LocalOrganization[]>([]);
   const [confirmSlug, setConfirmSlug] = useState('');
   const [busy, setBusy] = useState(false);
+  const [unitsText, setUnitsText] = useState(() => loadSaleUnits().join('\n'));
+  const [newUnit, setNewUnit] = useState('');
 
   const refreshLocal = useCallback(async () => {
     setOrganizations(await db.organizations.orderBy('updatedAt').reverse().toArray());
@@ -200,6 +203,71 @@ export function Settings() {
 
       {tab === 'products' && canProducts && (
         <div className="settings-tab-panel">
+          <section className="purchase-panel" style={{ marginBottom: 16 }}>
+            <div className="panel-heading">
+              <div>
+                <h2>وحدات القياس</h2>
+                <p>تظهر في قائمة «الوحدة» داخل فاتورة البيع. أضف أي وحدة تحتاجها (مثل: متر، كيلو، ملف…).</p>
+              </div>
+            </div>
+            <div className="settings-form-grid">
+              <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
+                الوحدات (سطر لكل وحدة)
+                <textarea
+                  className="settings-textarea"
+                  rows={6}
+                  value={unitsText}
+                  onChange={(e) => setUnitsText(e.target.value)}
+                />
+              </label>
+              <label className="pur-field">
+                إضافة وحدة سريعة
+                <input
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="مثال: متر"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const n = newUnit.trim();
+                      if (!n) return;
+                      const next = Array.from(new Set([...unitsText.split(/\n/).map((x) => x.trim()).filter(Boolean), n]));
+                      setUnitsText(next.join('\n'));
+                      setNewUnit('');
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className="pur-footer-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+              <button
+                className="primary-btn"
+                type="button"
+                onClick={() => {
+                  const list = saveSaleUnits(unitsText.split(/\n/));
+                  setUnitsText(list.join('\n'));
+                  setNotice('تم حفظ وحدات القياس. افتح المبيعات من جديد أو حدّث الصفحة.');
+                }}
+              >
+                حفظ الوحدات
+              </button>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => {
+                  if (!confirm('استعادة الوحدات الافتراضية؟')) return;
+                  const list = resetSaleUnits();
+                  setUnitsText(list.join('\n'));
+                  setNotice('تمت استعادة الوحدات الافتراضية.');
+                }}
+              >
+                افتراضي
+              </button>
+            </div>
+            <p style={{ margin: '10px 0 0', fontSize: 12, color: '#6b8288' }}>
+              الافتراضي: {DEFAULT_SALE_UNITS.join(' · ')}
+            </p>
+          </section>
           <Inventory embedded />
         </div>
       )}

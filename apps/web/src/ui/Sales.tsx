@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../data/api';
+import { loadSaleUnits } from '../data/units';
 import { loadInvoiceSettings } from '../data/invoiceSettings';
 import { IconReceipt, IconWallet, IconRefresh, IconChart, IconCart } from './Icons';
 
@@ -15,7 +16,6 @@ type CartLine = {
   cost: string;
   stock: number | null;
 };
-const SALE_UNITS = ['قطعة', 'ورقة', 'نسخة', 'علبة', 'دستة', 'كرتونة', 'رزمة', 'خدمة'] as const;
 type Sale = {
   id: string; invoiceNumber: string; saleDate: string; customerName?: string | null;
   subtotal: number | string; discount: number | string; total: number | string; paidAmount: number | string;
@@ -29,6 +29,7 @@ function escapeHtml(s: string) {
 }
 
 export function Sales() {
+  const [saleUnits, setSaleUnits] = useState<string[]>(() => loadSaleUnits());
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const newLineKey = () => `L-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -955,7 +956,7 @@ export function Sales() {
                     </td>
                     <td>
                       <select value={line.unit} onChange={(e) => updateLine(line.key, { unit: e.target.value })}>
-                        {SALE_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                        {saleUnits.map((u) => <option key={u} value={u}>{u}</option>)}
                       </select>
                     </td>
                     <td>
