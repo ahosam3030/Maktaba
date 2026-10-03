@@ -13,6 +13,7 @@ import {
   getStoredUser,
 } from '../data/api';
 import { AdminUsers } from './AdminUsers';
+import { IconUsers, IconPrint, IconSettings, IconPackage, IconLock, IconRefresh } from './Icons';
 
 type Tab = 'invoice' | 'users' | 'libraries' | 'danger';
 
@@ -97,7 +98,6 @@ export function Settings() {
         method: 'DELETE',
         body: JSON.stringify({ confirmSlug: confirmSlug.trim() }),
       });
-      // إزالة كل النسخ المحلية بنفس المعرّف (المعرّف المحلي قد يختلف عن id الخادم)
       const local = await db.organizations.where('slug').equals(sessionOrg.slug).toArray();
       for (const row of local) {
         await db.organizations.delete(row.id);
@@ -111,11 +111,11 @@ export function Settings() {
     }
   }
 
-  const tabs: Array<{ id: Tab; label: string; show: boolean }> = [
-    { id: 'users', label: 'الحسابات والصلاحيات', show: isOwner },
-    { id: 'invoice', label: 'الطباعة والإيصالات', show: true },
-    { id: 'libraries', label: 'هذا الجهاز', show: true },
-    { id: 'danger', label: 'حذف نهائي', show: isOwner },
+  const tabs: Array<{ id: Tab; label: string; desc: string; show: boolean; Icon: typeof IconUsers }> = [
+    { id: 'users', label: 'الحسابات', desc: 'مستخدمون وصلاحيات', show: isOwner, Icon: IconUsers },
+    { id: 'invoice', label: 'الطباعة', desc: 'بيانات الإيصالات', show: true, Icon: IconPrint },
+    { id: 'libraries', label: 'هذا الجهاز', desc: 'المكتبة والذاكرة', show: true, Icon: IconPackage },
+    { id: 'danger', label: 'حذف نهائي', desc: 'للمالك فقط', show: isOwner, Icon: IconLock },
   ];
 
   function switchTab(id: Tab) {
@@ -123,20 +123,43 @@ export function Settings() {
     setNotice('');
   }
 
+  const roleLabel =
+    sessionUser?.role === 'OWNER' ? 'مالك' : sessionUser?.role === 'ADMIN' ? 'أدمن' : 'مستخدم';
+
   return (
-    <div className="purchases-page">
+    <div className="purchases-page settings-page">
       <div className="purchase-title">
         <div>
           <span className="eyebrow">النظام</span>
           <h1>الإعدادات</h1>
           <p>
-            {sessionOrg
-              ? `الحسابات، بيانات الطباعة، والمراجع المحلية — ${sessionOrg.name}`
-              : 'الحسابات وبيانات الطباعة والمراجع على الجهاز'}
+            {sessionOrg ? sessionOrg.name : 'إعدادات النظام'}
             {sessionUser ? ` · ${sessionUser.fullName}` : ''}
           </p>
         </div>
+        {tab === 'libraries' && (
+          <button className="secondary-btn" type="button" onClick={() => void refreshLocal()}>
+            <IconRefresh size={16} />
+            <span>تحديث</span>
+          </button>
+        )}
       </div>
+
+      {(sessionUser || sessionOrg) && (
+        <div className="settings-identity">
+          <div className="settings-identity-mark">
+            <IconSettings size={22} />
+          </div>
+          <div className="settings-identity-body">
+            <strong>{sessionUser?.fullName || '—'}</strong>
+            <span>
+              {sessionOrg?.name || 'بدون مكتبة'}
+              {sessionUser ? ` · ${roleLabel}` : ''}
+            </span>
+          </div>
+          {sessionUser && <span className="role-pill settings-role">{roleLabel}</span>}
+        </div>
+      )}
 
       {notice && (
         <div className="purchase-notice" role="status">
@@ -144,7 +167,7 @@ export function Settings() {
         </div>
       )}
 
-      <div className="settings-tabs" role="tablist">
+      <div className="rpt-tabs settings-nav" role="tablist">
         {tabs
           .filter((t) => t.show)
           .map((t) => (
@@ -156,7 +179,11 @@ export function Settings() {
               className={tab === t.id ? 'active' : ''}
               onClick={() => switchTab(t.id)}
             >
-              {t.label}
+              <t.Icon size={20} className="rpt-tab-icon" />
+              <div className="rpt-tab-text">
+                <strong>{t.label}</strong>
+                <span>{t.desc}</span>
+              </div>
             </button>
           ))}
       </div>
@@ -169,86 +196,94 @@ export function Settings() {
 
       {tab === 'invoice' && (
         <div className="settings-tab-panel">
-          <section className="purchase-panel">
+          <section className="purchase-panel pur-invoice">
             <div className="panel-heading">
               <div>
                 <h2>بيانات الطباعة والإيصالات</h2>
-                <p>
-                  تظهر على فواتير البيع والإيصالات المطبوعة. تُحفظ في هذا المتصفح فقط (ليست على
-                  الخادم) — إن غيّرت الجهاز أعد ضبطها هنا.
-                </p>
+                <p>تظهر على فواتير البيع والإيصالات. تُحفظ في هذا المتصفح فقط — عند تغيير الجهاز أعد ضبطها هنا.</p>
               </div>
             </div>
-            <div className="purchase-form-grid">
-              <label>
-                عنوان المركز
-                <input
-                  value={form.brandTitle}
-                  onChange={(e) => update('brandTitle', e.target.value)}
-                  placeholder="اسم يظهر أعلى الفاتورة"
-                />
-              </label>
-              <label>
-                السطر التوضيحي
-                <input
-                  value={form.brandSubtitle}
-                  onChange={(e) => update('brandSubtitle', e.target.value)}
-                  placeholder="نشاط المركز باختصار"
-                />
-              </label>
-              <label>
-                تليفون / واتساب
-                <input
-                  value={form.phone}
-                  onChange={(e) => update('phone', e.target.value)}
-                  dir="ltr"
-                  placeholder="01xxxxxxxxx"
-                />
-              </label>
-              <label>
-                العنوان
-                <input
-                  value={form.address}
-                  onChange={(e) => update('address', e.target.value)}
-                  placeholder="العنوان الظاهر على الفاتورة"
-                />
-              </label>
-              <label>
-                عنوان المستند
-                <input
-                  value={form.invoiceTitle}
-                  onChange={(e) => update('invoiceTitle', e.target.value)}
-                  placeholder="مثل: فاتورة مبيعات"
-                />
-              </label>
-              <label>
-                نص العلامة المائية
-                <input
-                  value={form.watermarkText}
-                  onChange={(e) => update('watermarkText', e.target.value)}
-                  placeholder="نص خفيف خلف الفاتورة"
-                />
-              </label>
-              <label>
-                تذييل المستند
-                <input
-                  value={form.footerText}
-                  onChange={(e) => update('footerText', e.target.value)}
-                  placeholder="شكرًا لثقتكم بنا"
-                />
-              </label>
-              <label style={{ gridColumn: '1 / -1' }}>
-                وسوم الخدمات (سطر لكل وسم)
-                <textarea
-                  rows={4}
-                  value={tagsText}
-                  onChange={(e) => setTagsText(e.target.value)}
-                  placeholder={'خدمات علمية\nتصوير وطباعة'}
-                  style={{ width: '100%', border: '1px solid #dbe5e5', borderRadius: 8, padding: 10 }}
-                />
-              </label>
+
+            <div className="pur-section">
+              <div className="pur-section-title">هوية المركز</div>
+              <div className="settings-form-grid">
+                <label className="pur-field">
+                  عنوان المركز
+                  <input
+                    value={form.brandTitle}
+                    onChange={(e) => update('brandTitle', e.target.value)}
+                    placeholder="اسم يظهر أعلى الفاتورة"
+                  />
+                </label>
+                <label className="pur-field">
+                  السطر التوضيحي
+                  <input
+                    value={form.brandSubtitle}
+                    onChange={(e) => update('brandSubtitle', e.target.value)}
+                    placeholder="نشاط المركز باختصار"
+                  />
+                </label>
+                <label className="pur-field">
+                  تليفون / واتساب
+                  <input
+                    value={form.phone}
+                    onChange={(e) => update('phone', e.target.value)}
+                    dir="ltr"
+                    placeholder="01xxxxxxxxx"
+                  />
+                </label>
+                <label className="pur-field">
+                  العنوان
+                  <input
+                    value={form.address}
+                    onChange={(e) => update('address', e.target.value)}
+                    placeholder="العنوان الظاهر على الفاتورة"
+                  />
+                </label>
+              </div>
             </div>
-            <div className="form-actions">
+
+            <div className="pur-section">
+              <div className="pur-section-title">شكل المستند</div>
+              <div className="settings-form-grid">
+                <label className="pur-field">
+                  عنوان المستند
+                  <input
+                    value={form.invoiceTitle}
+                    onChange={(e) => update('invoiceTitle', e.target.value)}
+                    placeholder="مثل: فاتورة مبيعات"
+                  />
+                </label>
+                <label className="pur-field">
+                  نص العلامة المائية
+                  <input
+                    value={form.watermarkText}
+                    onChange={(e) => update('watermarkText', e.target.value)}
+                    placeholder="نص خفيف خلف الفاتورة"
+                  />
+                </label>
+                <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
+                  تذييل المستند
+                  <input
+                    value={form.footerText}
+                    onChange={(e) => update('footerText', e.target.value)}
+                    placeholder="شكرًا لثقتكم بنا"
+                  />
+                </label>
+                <label className="pur-field" style={{ gridColumn: '1 / -1' }}>
+                  وسوم الخدمات (سطر لكل وسم)
+                  <textarea
+                    rows={4}
+                    value={tagsText}
+                    onChange={(e) => setTagsText(e.target.value)}
+                    placeholder={'خدمات علمية\nتصوير وطباعة'}
+                    className="settings-textarea"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="pur-footer-actions" style={{ justifyContent: 'flex-start', marginTop: 8 }}>
               <button className="primary-btn" type="button" onClick={handleSaveInvoice}>
                 حفظ بيانات الطباعة
               </button>
@@ -266,113 +301,95 @@ export function Settings() {
             <div className="panel-heading">
               <div>
                 <h2>مكتبة الحساب (على الخادم)</h2>
-                <p>
-                  كل مستخدم مسجّل مرتبط بمكتبة واحدة. الحساب الحالي وجميع موظفيك يعملون داخل هذه المكتبة
-                  فقط — الفواتير والمخزون والمستخدمون تابعون لها.
-                </p>
+                <p>كل مستخدم مرتبط بمكتبة واحدة. الفواتير والمخزون والمستخدمون تابعون لها.</p>
               </div>
             </div>
             {sessionOrg ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>الاسم</th>
-                      <th>المعرّف</th>
-                      <th>الهاتف</th>
-                      <th>الحساب</th>
-                      <th>الدور</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>
-                        {sessionOrg.name}
-                        <span className="tag synced" style={{ marginInlineStart: 8 }}>
-                          مرتبطة بالحساب
-                        </span>
-                      </td>
-                      <td dir="ltr">{sessionOrg.slug}</td>
-                      <td dir="ltr">{sessionOrg.phone?.trim() ? sessionOrg.phone : '—'}</td>
-                      <td dir="ltr">{sessionUser?.email || '—'}</td>
-                      <td>
-                        {sessionUser?.role === 'OWNER'
-                          ? 'مالك'
-                          : sessionUser?.role === 'ADMIN'
-                            ? 'أدمن'
-                            : 'مستخدم'}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="settings-org-card">
+                <div className="settings-org-main">
+                  <strong>{sessionOrg.name}</strong>
+                  <span className="tag synced">مرتبطة بالحساب</span>
+                </div>
+                <div className="settings-org-grid">
+                  <div>
+                    <span>المعرّف</span>
+                    <b dir="ltr">{sessionOrg.slug}</b>
+                  </div>
+                  <div>
+                    <span>الهاتف</span>
+                    <b dir="ltr">{sessionOrg.phone || '—'}</b>
+                  </div>
+                  <div>
+                    <span>الحساب</span>
+                    <b>{sessionUser?.fullName || '—'}</b>
+                  </div>
+                  <div>
+                    <span>الدور</span>
+                    <b>{roleLabel}</b>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="empty-state">لا توجد جلسة. سجّل الدخول أولًا.</div>
+              <div className="empty-state">لا توجد جلسة نشطة. سجّل الدخول أولًا.</div>
             )}
           </section>
 
           <section className="purchase-panel">
             <div className="panel-heading">
               <div>
-                <h2>ذاكرة المتصفح فقط (ليست مكتبات منفصلة)</h2>
+                <h2>ذاكرة المتصفح</h2>
                 <p>
-                  هذه ليست حسابات ولا مكتبات على الخادم — مجرد اختصارات محلية بعد الدخول. حذفها من هنا لا
-                  يمس بيانات السيرفر ولا يفصل الحساب عن مكتبته.
+                  قائمة مساعدة على هذا الجهاز فقط — ليست مكتبات منفصلة. الحذف من هنا لا يمس بيانات
+                  الخادم.
                 </p>
               </div>
               <span className="count-badge">{organizations.length}</span>
             </div>
-            {organizations.length === 0 ? (
-              <div className="empty-state">لا توجد نسخ محلية. ستُحفظ تلقائيًا عند تسجيل الدخول.</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>الاسم</th>
-                      <th>المعرّف</th>
-                      <th>الهاتف</th>
-                      <th>مرتبطة بـ</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {organizations.map((org) => {
-                      const isCurrent = Boolean(sessionOrg?.slug && sessionOrg.slug === org.slug);
-                      return (
-                        <tr key={org.id}>
-                          <td>
-                            {org.name}
-                            {isCurrent ? (
-                              <span className="tag synced" style={{ marginInlineStart: 8 }}>
-                                جلسة حالية
-                              </span>
-                            ) : null}
-                            {org.localOnly ? (
-                              <span className="tag local" style={{ marginInlineStart: 8 }}>
-                                غير مربوطة
-                              </span>
-                            ) : null}
-                          </td>
-                          <td dir="ltr">{org.slug}</td>
-                          <td dir="ltr">{org.phone?.trim() ? org.phone : '—'}</td>
-                          <td dir="ltr">{org.linkedUserEmail || (org.localOnly ? '—' : 'حساب خادم')}</td>
-                          <td>
-                            <button
-                              className="danger-outline-btn"
-                              type="button"
-                              onClick={() => void removeLocalOrg(org)}
-                            >
-                              إزالة من الجهاز
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الاسم</th>
+                    <th>المعرّف</th>
+                    <th>الهاتف</th>
+                    <th>آخر تحديث</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizations.map((org) => {
+                    const isCurrent = sessionOrg?.slug === org.slug;
+                    return (
+                      <tr key={org.id}>
+                        <td>
+                          {org.name}
+                          {isCurrent && (
+                            <span className="tag synced" style={{ marginInlineStart: 8 }}>
+                              الجلسة الحالية
+                            </span>
+                          )}
+                        </td>
+                        <td dir="ltr">{org.slug}</td>
+                        <td dir="ltr">{org.phone || '—'}</td>
+                        <td>{org.updatedAt ? new Date(org.updatedAt).toLocaleString('en-GB') : '—'}</td>
+                        <td>
+                          <button
+                            className="danger-outline-btn small"
+                            type="button"
+                            onClick={() => void removeLocalOrg(org)}
+                          >
+                            إزالة من الجهاز
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {organizations.length === 0 && (
+                <div className="empty-state">لا توجد بيانات محلية محفوظة على هذا المتصفح.</div>
+              )}
+            </div>
           </section>
         </div>
       )}
@@ -384,38 +401,34 @@ export function Settings() {
               <div>
                 <h2>حذف المكتبة نهائيًا من الخادم</h2>
                 <p>
-                  للمالك فقط. يحذف المكتبة{' '}
-                  <strong>{sessionOrg.name}</strong> (
-                  <span dir="ltr">{sessionOrg.slug}</span>
-                  ) وكل الفواتير والمخزون والمبيعات والمستخدمين من قاعدة البيانات. لا يمكن التراجع.
+                  للمالك فقط. يحذف المكتبة <strong>{sessionOrg.name}</strong> مع كل الفواتير
+                  والمخزون والمبيعات والمستخدمين. لا يمكن التراجع.
                 </p>
               </div>
             </div>
-            <div className="inline-form" style={{ flexWrap: 'wrap', alignItems: 'end' }}>
-              <label>
+            <div className="settings-danger-box">
+              <label className="pur-field">
                 اكتب المعرّف للتأكيد
                 <input
                   value={confirmSlug}
                   onChange={(e) => setConfirmSlug(e.target.value)}
-                  dir="ltr"
                   placeholder={sessionOrg.slug}
+                  dir="ltr"
                   autoComplete="off"
                 />
               </label>
+              <p className="settings-danger-hint">
+                المعرّف المطلوب: <code dir="ltr">{sessionOrg.slug}</code>
+              </p>
               <button
-                className="danger-outline-btn"
+                className="danger-btn"
                 type="button"
                 disabled={busy || confirmSlug.trim() !== sessionOrg.slug}
                 onClick={() => void deleteServerOrganization()}
               >
-                {busy ? 'جارٍ الحذف...' : 'حذف نهائي من الخادم'}
+                {busy ? 'جارٍ الحذف...' : 'حذف المكتبة نهائيًا'}
               </button>
             </div>
-            {confirmSlug.trim() && confirmSlug.trim() !== sessionOrg.slug && (
-              <p className="muted-sm" style={{ color: '#b42318', marginTop: 8 }}>
-                المعرّف غير مطابق. المطلوب: <span dir="ltr">{sessionOrg.slug}</span>
-              </p>
-            )}
           </section>
         </div>
       )}
