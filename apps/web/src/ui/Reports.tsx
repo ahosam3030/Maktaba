@@ -3,6 +3,24 @@ import { apiRequest } from '../data/api';
 import { ProductPriceReport } from './ProductPriceReport';
 import { IconChart, IconTag, IconPackage, IconRefresh } from './Icons';
 
+async function downloadReportCsv(from: string, to: string) {
+  const q = new URLSearchParams();
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  const data = await apiRequest<{ filename: string; body: string }>(`/reports/export/csv?${q}`);
+  const blob = new Blob([data.body], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = data.filename || 'report.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function printReport() {
+  window.print();
+}
+
 const money = (n: number) =>
   `${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 const qty = (n: number) => (Number(n) || 0).toLocaleString('en-US', { maximumFractionDigits: 3 });
@@ -136,6 +154,8 @@ function ProfitBars({ series }: { series: SeriesRow[] }) {
   const show = series.slice(-14);
   return (
     <div className="rpt-bars" role="img" aria-label="رسم أرباح الفترة">
+
+
       {show.map((row) => {
         const h = Math.max(4, (Math.abs(row.profit) / maxAbs) * 100);
         const up = row.profit >= 0;
@@ -223,6 +243,11 @@ export function Reports() {
 
   return (
     <div className="purchases-page reports-page">
+          <div className="toolbar-actions report-export-bar no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button type="button" className="secondary-btn" onClick={() => void downloadReportCsv(from, to).catch((e) => setError(e instanceof Error ? e.message : 'تعذر التصدير'))}>تصدير Excel (CSV)</button>
+            <button type="button" className="secondary-btn" onClick={() => printReport()}>طباعة / PDF</button>
+          </div>
+
       <div className="purchase-title">
         <div>
           <span className="eyebrow">لوحة مالية</span>

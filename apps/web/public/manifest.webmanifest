@@ -1,0 +1,11 @@
+{
+  "name": "Maktaba",
+  "short_name": "Maktaba",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f8",
+  "theme_color": "#0f766e",
+  "description": "نظام إدارة المكتبات والخدمات"
+}
